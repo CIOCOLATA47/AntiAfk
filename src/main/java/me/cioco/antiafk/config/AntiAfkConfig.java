@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AntiAfkConfig {
 
@@ -22,10 +24,12 @@ public class AntiAfkConfig {
     public static boolean movementEnabled = false;
     public static float horizontalMultiplier = 2.0f;
     public static float verticalMultiplier = 1.5f;
+    public static boolean randomPauseEnabled = false;
     private static int interval = 100;
     private static int minInterval = 80;
     private static int maxInterval = 120;
     private static boolean isRandomInterval = false;
+    private static final Logger LOGGER = LoggerFactory.getLogger(AntiAfkConfig.class);
 
     public void saveConfiguration() {
         try {
@@ -46,11 +50,12 @@ public class AntiAfkConfig {
                 properties.setProperty("isRandomInterval", String.valueOf(isRandomInterval));
                 properties.setProperty("horizontalMultiplier", String.valueOf(horizontalMultiplier));
                 properties.setProperty("verticalMultiplier", String.valueOf(verticalMultiplier));
+                properties.setProperty("randomPauseEnabled", String.valueOf(randomPauseEnabled));
 
                 properties.store(output, null);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to save AntiAFK configuration", e);
         }
     }
 
@@ -75,9 +80,10 @@ public class AntiAfkConfig {
             isRandomInterval = Boolean.parseBoolean(properties.getProperty("isRandomInterval", "false"));
             horizontalMultiplier = Float.parseFloat(properties.getProperty("horizontalMultiplier", "2.0"));
             verticalMultiplier = Float.parseFloat(properties.getProperty("verticalMultiplier", "1.5"));
+            randomPauseEnabled = Boolean.parseBoolean(properties.getProperty("randomPauseEnabled", "false"));
 
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to load AntiAFK configuration", e);
         }
     }
 
