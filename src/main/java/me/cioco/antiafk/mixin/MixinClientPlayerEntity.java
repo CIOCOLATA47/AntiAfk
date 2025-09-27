@@ -46,11 +46,6 @@ public class MixinClientPlayerEntity {
         PlayerEntity player = mc.player;
         boolean utilTick = player.age % config.getInterval() == 0;
 
-        if (!Main.toggled) {
-            resetKeys(mc);
-            return;
-        }
-
         handleAutoJump(player, utilTick);
         handleMouseMovement(player, utilTick);
         handleAutoSpin(player);
@@ -61,14 +56,14 @@ public class MixinClientPlayerEntity {
 
     @Unique
     private void handleAutoJump(PlayerEntity player, boolean utilTick) {
-        if (AntiAfkConfig.autoJumpEnabled && utilTick && player.isOnGround()) {
+        if (Main.toggled && AntiAfkConfig.autoJumpEnabled && utilTick && player.isOnGround()) {
             player.jump();
         }
     }
 
     @Unique
     private void handleMouseMovement(PlayerEntity player, boolean utilTick) {
-        if (!AntiAfkConfig.mouseMovement || !utilTick) return;
+        if (!(Main.toggled && AntiAfkConfig.mouseMovement && utilTick)) return;
 
         if (!hasTarget) {
             targetYaw = player.getYaw();
@@ -90,15 +85,12 @@ public class MixinClientPlayerEntity {
         player.setPitch(newPitch);
     }
 
-    @Unique
-    private float lerp(float current, float target, float alpha) {
+    @Unique private float lerp(float current, float target, float alpha) {
         return current + (target - current) * alpha;
     }
-
-
     @Unique
     private void handleAutoSpin(PlayerEntity player) {
-        if (!AntiAfkConfig.autoSpinEnabled) return;
+        if (!(Main.toggled && AntiAfkConfig.autoSpinEnabled)) return;
 
         player.setYaw(player.getYaw() + SpinCommand.spinSpeed);
 
@@ -118,35 +110,52 @@ public class MixinClientPlayerEntity {
 
     @Unique
     private void handleSneak(MinecraftClient mc, boolean utilTick) {
-        if (AntiAfkConfig.sneak) {
+        if (Main.toggled && AntiAfkConfig.sneak) {
             mc.options.sneakKey.setPressed(utilTick);
         }
     }
 
     @Unique
-    private void handleMovement(MinecraftClient mc, PlayerEntity player) {
-        if (!AntiAfkConfig.movementEnabled) return;
-
-        mc.options.leftKey.setPressed(player.age % 20 < 10);
-        mc.options.rightKey.setPressed(player.age % 20 >= 10);
-        mc.options.forwardKey.setPressed(player.age % 40 < 20);
-        mc.options.backKey.setPressed(player.age % 40 >= 20);
-    }
+    private boolean wasMovementActive = false;
 
     @Unique
-    private void handleSwing(MinecraftClient mc, boolean utilTick) {
-        if (AntiAfkConfig.shouldSwing && mc.world != null && utilTick) {
-            assert mc.player != null;
-            mc.player.swingHand(mc.player.getActiveHand());
+    private void handleMovement(MinecraftClient mc, PlayerEntity player) {
+        if (Main.toggled && AntiAfkConfig.movementEnabled) {
+            wasMovementActive = true; 
+
+            long currentTime = System.currentTimeMillis();
+
+            if (currentTime % 1000 < 500) {
+                mc.options.leftKey.setPressed(true);
+                mc.options.rightKey.setPressed(false);
+            } else {
+                mc.options.leftKey.setPressed(false);
+                mc.options.rightKey.setPressed(true);
+            }
+
+            if (currentTime % 2000 < 1000) {
+                mc.options.forwardKey.setPressed(true);
+                mc.options.backKey.setPressed(false);
+            } else {
+                mc.options.forwardKey.setPressed(false);
+                mc.options.backKey.setPressed(true);
+            }
+        } else {
+            if (wasMovementActive) {
+                mc.options.leftKey.setPressed(false);
+                mc.options.rightKey.setPressed(false);
+                mc.options.forwardKey.setPressed(false);
+                mc.options.backKey.setPressed(false);
+                wasMovementActive = false;
+            }
         }
     }
 
     @Unique
-    private void resetKeys(MinecraftClient mc) {
-        mc.options.leftKey.setPressed(false);
-        mc.options.rightKey.setPressed(false);
-        mc.options.forwardKey.setPressed(false);
-        mc.options.backKey.setPressed(false);
-        mc.options.sneakKey.setPressed(false);
+    private void handleSwing(MinecraftClient mc, boolean utilTick) {
+        if (Main.toggled && AntiAfkConfig.shouldSwing && mc.world != null && utilTick) {
+            assert mc.player != null;
+            mc.player.swingHand(mc.player.getActiveHand());
+        }
     }
 }
