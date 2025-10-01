@@ -24,7 +24,7 @@ public class Main implements ModInitializer {
         keyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.antiafk.toggle",
                 GLFW.GLFW_KEY_UNKNOWN,
-                "key.categories.antiafk"
+               KeyBinding.Category.MISC
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
