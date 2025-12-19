@@ -38,6 +38,9 @@ public class MixinClientPlayerEntity {
     @Unique
     private boolean hasTarget = false;
 
+    @Unique
+    private boolean wasMovementActive = false;
+
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -63,7 +66,10 @@ public class MixinClientPlayerEntity {
 
     @Unique
     private void handleMouseMovement(PlayerEntity player, boolean utilTick) {
-        if (!(Main.toggled && AntiAfkConfig.mouseMovement && utilTick)) return;
+        if (!Main.toggled || !AntiAfkConfig.mouseMovement || !utilTick) {
+            hasTarget = false;
+            return;
+        }
 
         if (!hasTarget) {
             targetYaw = player.getYaw();
@@ -85,9 +91,11 @@ public class MixinClientPlayerEntity {
         player.setPitch(newPitch);
     }
 
-    @Unique private float lerp(float current, float target, float alpha) {
+    @Unique
+    private float lerp(float current, float target, float alpha) {
         return current + (target - current) * alpha;
     }
+
     @Unique
     private void handleAutoSpin(PlayerEntity player) {
         if (!(Main.toggled && AntiAfkConfig.autoSpinEnabled)) return;
@@ -116,38 +124,24 @@ public class MixinClientPlayerEntity {
     }
 
     @Unique
-    private boolean wasMovementActive = false;
-
-    @Unique
     private void handleMovement(MinecraftClient mc, PlayerEntity player) {
         if (Main.toggled && AntiAfkConfig.movementEnabled) {
-            wasMovementActive = true; 
+            wasMovementActive = true;
 
-            long currentTime = System.currentTimeMillis();
+            boolean toggleLR = (player.age / 5) % 2 == 0;
+            boolean toggleFB = (player.age / 10) % 2 == 0;
 
-            if (currentTime % 1000 < 500) {
-                mc.options.leftKey.setPressed(true);
-                mc.options.rightKey.setPressed(false);
-            } else {
-                mc.options.leftKey.setPressed(false);
-                mc.options.rightKey.setPressed(true);
-            }
+            mc.options.leftKey.setPressed(toggleLR);
+            mc.options.rightKey.setPressed(!toggleLR);
+            mc.options.forwardKey.setPressed(toggleFB);
+            mc.options.backKey.setPressed(!toggleFB);
 
-            if (currentTime % 2000 < 1000) {
-                mc.options.forwardKey.setPressed(true);
-                mc.options.backKey.setPressed(false);
-            } else {
-                mc.options.forwardKey.setPressed(false);
-                mc.options.backKey.setPressed(true);
-            }
-        } else {
-            if (wasMovementActive) {
-                mc.options.leftKey.setPressed(false);
-                mc.options.rightKey.setPressed(false);
-                mc.options.forwardKey.setPressed(false);
-                mc.options.backKey.setPressed(false);
-                wasMovementActive = false;
-            }
+        } else if (wasMovementActive) {
+            mc.options.leftKey.setPressed(false);
+            mc.options.rightKey.setPressed(false);
+            mc.options.forwardKey.setPressed(false);
+            mc.options.backKey.setPressed(false);
+            wasMovementActive = false;
         }
     }
 
