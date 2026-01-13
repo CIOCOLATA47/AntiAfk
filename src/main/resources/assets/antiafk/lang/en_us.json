@@ -1,4 +1,5 @@
 {
   "key.antiafk.toggle": "AntiAfk Toggle",
+  "key.antiafk.open_gui": "AntiAfk Gui",
   "key.category.antiafk.key_category": "AntiAfk"
 }

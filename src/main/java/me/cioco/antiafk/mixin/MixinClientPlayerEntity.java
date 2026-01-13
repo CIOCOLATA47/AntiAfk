@@ -1,10 +1,11 @@
 package me.cioco.antiafk.mixin;
 
 import me.cioco.antiafk.Main;
-import me.cioco.antiafk.commands.SpinCommand;
 import me.cioco.antiafk.config.AntiAfkConfig;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -14,142 +15,169 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Random;
 
-@Mixin(PlayerEntity.class)
-public class MixinClientPlayerEntity {
+@Mixin(ClientPlayerEntity.class)
+public abstract class MixinClientPlayerEntity {
 
-    @Unique
-    private static final Random RANDOM = new Random();
+    @Unique private static final Random RANDOM = new Random();
 
-    @Unique
-    private final AntiAfkConfig config = new AntiAfkConfig();
+    @Unique private int timerTicks = 0;
+    @Unique private int currentTargetTicks = 20;
+    @Unique private boolean wasActive = false;
 
-    @Unique
-    private float pitchOffset = 0f;
+    @Unique private float targetYaw;
+    @Unique private float targetPitch;
+    @Unique private boolean hasTarget = false;
+    @Unique private float visualYawVelocity = 0f;
+    @Unique private float anchorYaw;
+    @Unique private float anchorPitch;
+    @Unique private boolean isAnchored = false;
 
-    @Unique
-    private boolean pitchIncreasing = true;
-
-    @Unique
-    private float targetYaw;
-
-    @Unique
-    private float targetPitch;
-
-    @Unique
-    private boolean hasTarget = false;
-
-    @Unique
-    private boolean wasMovementActive = false;
+    @Unique private int pauseTicksRemaining = 0;
+    @Unique private int activeMovementTicks = 0;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null || mc.player == null) return;
+        ClientPlayerEntity player = (ClientPlayerEntity) (Object) this;
 
-        PlayerEntity player = mc.player;
-        boolean utilTick = player.age % config.getInterval() == 0;
-
-        handleAutoJump(player, utilTick);
-        handleMouseMovement(player, utilTick);
-        handleAutoSpin(player);
-        handleSneak(mc, utilTick);
-        handleMovement(mc, player);
-        handleSwing(mc, utilTick);
-    }
-
-    @Unique
-    private void handleAutoJump(PlayerEntity player, boolean utilTick) {
-        if (Main.toggled && AntiAfkConfig.autoJumpEnabled && utilTick && player.isOnGround()) {
-            player.jump();
-        }
-    }
-
-    @Unique
-    private void handleMouseMovement(PlayerEntity player, boolean utilTick) {
-        if (!Main.toggled || !AntiAfkConfig.mouseMovement || !utilTick) {
-            hasTarget = false;
+        if (!Main.toggled) {
+            if (wasActive) {
+                forceStopAll(mc);
+                wasActive = false;
+            }
             return;
         }
 
-        if (!hasTarget) {
-            targetYaw = player.getYaw();
-            targetPitch = player.getPitch();
-            hasTarget = true;
+        if (AntiAfkConfig.randomPauseEnabled) {
+            if (pauseTicksRemaining > 0) {
+                pauseTicksRemaining--;
+                forceStopAll(mc);
+                return;
+            }
+
+            if (RANDOM.nextFloat() < 0.005f) {
+                pauseTicksRemaining = 20;
+                forceStopAll(mc);
+                return;
+            }
         }
 
-        targetYaw += (RANDOM.nextFloat() * 2 - 1) * 50f * AntiAfkConfig.horizontalMultiplier;
-        targetPitch = MathHelper.clamp(
-                targetPitch + (RANDOM.nextFloat() * 2 - 1) * 24f * AntiAfkConfig.verticalMultiplier,
-                -90.0f, 90.0f
-        );
+        wasActive = true;
+        activeMovementTicks++;
 
-        float smoothing = 0.05f;
-        float newYaw = lerp(player.getYaw(), targetYaw, smoothing);
-        float newPitch = lerp(player.getPitch(), targetPitch, smoothing);
+        handleSmoothMovement(mc, player);
 
-        player.setYaw(newYaw);
-        player.setPitch(newPitch);
+        if (++timerTicks >= currentTargetTicks) {
+            timerTicks = 0;
+            executeTimedActions(mc, player);
+            calculateNextInterval();
+        }
+
+        handleUltraSmoothSpin(player);
+        handleMouseMovement(player);
     }
 
     @Unique
-    private float lerp(float current, float target, float alpha) {
-        return current + (target - current) * alpha;
+    private void forceStopAll(MinecraftClient mc) {
+        if (mc.options == null) return;
+
+        setKeyState(mc.options.forwardKey, false);
+        setKeyState(mc.options.backKey, false);
+        setKeyState(mc.options.leftKey, false);
+        setKeyState(mc.options.rightKey, false);
+
+        if (AntiAfkConfig.sneak) {
+            setKeyState(mc.options.sneakKey, false);
+        }
+
+        visualYawVelocity = 0;
     }
 
     @Unique
-    private void handleAutoSpin(PlayerEntity player) {
-        if (!(Main.toggled && AntiAfkConfig.autoSpinEnabled)) return;
-
-        player.setYaw(player.getYaw() + SpinCommand.spinSpeed);
-
-        float pitchStep = 0.2f;
-        float maxPitchChange = 2.0f;
-        if (pitchIncreasing) {
-            pitchOffset += pitchStep;
-            if (pitchOffset >= maxPitchChange) pitchIncreasing = false;
-        } else {
-            pitchOffset -= pitchStep;
-            if (pitchOffset <= -maxPitchChange) pitchIncreasing = true;
+    private void handleUltraSmoothSpin(ClientPlayerEntity player) {
+        if (!AntiAfkConfig.autoSpinEnabled) {
+            visualYawVelocity = 0;
+            return;
         }
 
-        float newPitch = MathHelper.clamp(player.getPitch() + pitchOffset, -90f, 90f);
-        player.setPitch(newPitch);
+        visualYawVelocity = MathHelper.lerp(0.02f, visualYawVelocity, AntiAfkConfig.spinSpeed);
+        player.setYaw(player.getYaw() + visualYawVelocity);
+
+        float verticalWave = (float) Math.sin(activeMovementTicks * 0.03f) * 20.0f;
+        player.setPitch(MathHelper.lerp(0.05f, player.getPitch(), verticalWave));
     }
 
     @Unique
-    private void handleSneak(MinecraftClient mc, boolean utilTick) {
-        if (Main.toggled && AntiAfkConfig.sneak) {
-            mc.options.sneakKey.setPressed(utilTick);
+    private void handleSmoothMovement(MinecraftClient mc, ClientPlayerEntity player) {
+        if (mc.options == null || !AntiAfkConfig.movementEnabled) return;
+
+        if (mc.currentScreen != null) {
+            forceStopAll(mc);
+            return;
+        }
+
+        int walkTicks = 40;
+        int pauseTicks = 10;
+        int phaseTotal = walkTicks + pauseTicks;
+
+        int tickInCycle = activeMovementTicks % (phaseTotal * 4);
+        int currentPhase = tickInCycle / phaseTotal;
+        boolean isWalking = (tickInCycle % phaseTotal) < walkTicks;
+
+        setKeyState(mc.options.forwardKey, isWalking && currentPhase == 0);
+        setKeyState(mc.options.rightKey,   isWalking && currentPhase == 1);
+        setKeyState(mc.options.backKey,    isWalking && currentPhase == 2);
+        setKeyState(mc.options.leftKey,    isWalking && currentPhase == 3);
+    }
+
+    @Unique
+    private void executeTimedActions(MinecraftClient mc, ClientPlayerEntity player) {
+        if (AntiAfkConfig.autoJumpEnabled && player.isOnGround()) player.jump();
+        if (AntiAfkConfig.shouldSwing) player.swingHand(Hand.MAIN_HAND);
+
+        if (AntiAfkConfig.sneak && mc.options != null) {
+            boolean currentState = mc.options.sneakKey.isPressed();
+            setKeyState(mc.options.sneakKey, !currentState);
         }
     }
 
     @Unique
-    private void handleMovement(MinecraftClient mc, PlayerEntity player) {
-        if (Main.toggled && AntiAfkConfig.movementEnabled) {
-            wasMovementActive = true;
-
-            boolean toggleLR = (player.age / 5) % 2 == 0;
-            boolean toggleFB = (player.age / 10) % 2 == 0;
-
-            mc.options.leftKey.setPressed(toggleLR);
-            mc.options.rightKey.setPressed(!toggleLR);
-            mc.options.forwardKey.setPressed(toggleFB);
-            mc.options.backKey.setPressed(!toggleFB);
-
-        } else if (wasMovementActive) {
-            mc.options.leftKey.setPressed(false);
-            mc.options.rightKey.setPressed(false);
-            mc.options.forwardKey.setPressed(false);
-            mc.options.backKey.setPressed(false);
-            wasMovementActive = false;
+    private void handleMouseMovement(ClientPlayerEntity player) {
+        if (!AntiAfkConfig.mouseMovement) {
+            isAnchored = false;
+            return;
         }
+
+        if (!isAnchored) {
+            anchorYaw = player.getYaw();
+            anchorPitch = player.getPitch();
+            targetYaw = anchorYaw;
+            targetPitch = anchorPitch;
+            isAnchored = true;
+        }
+
+        if (activeMovementTicks % 50 == 0) {
+            float yawOffset = (RANDOM.nextFloat() - 0.5f) * 60f * AntiAfkConfig.horizontalMultiplier;
+            float pitchOffset = (RANDOM.nextFloat() - 0.5f) * 30f * AntiAfkConfig.verticalMultiplier;
+
+            targetYaw = anchorYaw + yawOffset;
+            targetPitch = MathHelper.clamp(anchorPitch + pitchOffset, -90f, 90f);
+        }
+
+        player.setYaw(MathHelper.lerpAngleDegrees(0.03f, player.getYaw(), targetYaw));
+        player.setPitch(MathHelper.lerp(0.03f, player.getPitch(), targetPitch));
     }
 
     @Unique
-    private void handleSwing(MinecraftClient mc, boolean utilTick) {
-        if (Main.toggled && AntiAfkConfig.shouldSwing && mc.world != null && utilTick) {
-            assert mc.player != null;
-            mc.player.swingHand(mc.player.getActiveHand());
-        }
+    private void calculateNextInterval() {
+        float seconds = AntiAfkConfig.useRandomInterval ?
+                AntiAfkConfig.minInterval + RANDOM.nextFloat() * (AntiAfkConfig.maxInterval - AntiAfkConfig.minInterval) :
+                AntiAfkConfig.interval;
+        currentTargetTicks = Math.max(2, (int)(seconds * 20f));
+    }
+
+    @Unique
+    private void setKeyState(KeyBinding key, boolean pressed) {
+        key.setPressed(pressed);
     }
 }
