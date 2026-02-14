@@ -18,22 +18,33 @@ import java.util.Random;
 @Mixin(ClientPlayerEntity.class)
 public abstract class MixinClientPlayerEntity {
 
-    @Unique private static final Random RANDOM = new Random();
+    @Unique
+    private static final Random RANDOM = new Random();
 
-    @Unique private int timerTicks = 0;
-    @Unique private int currentTargetTicks = 20;
-    @Unique private boolean wasActive = false;
+    @Unique
+    private int timerTicks = 0;
+    @Unique
+    private int currentTargetTicks = 20;
+    @Unique
+    private boolean wasActive = false;
 
-    @Unique private float targetYaw;
-    @Unique private float targetPitch;
-    @Unique private boolean hasTarget = false;
-    @Unique private float visualYawVelocity = 0f;
-    @Unique private float anchorYaw;
-    @Unique private float anchorPitch;
-    @Unique private boolean isAnchored = false;
+    @Unique
+    private float targetYaw;
+    @Unique
+    private float targetPitch;
+    @Unique
+    private float visualYawVelocity = 0f;
+    @Unique
+    private float anchorYaw;
+    @Unique
+    private float anchorPitch;
+    @Unique
+    private boolean isAnchored = false;
 
-    @Unique private int pauseTicksRemaining = 0;
-    @Unique private int activeMovementTicks = 0;
+    @Unique
+    private int pauseTicksRemaining = 0;
+    @Unique
+    private int activeMovementTicks = 0;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
@@ -125,9 +136,9 @@ public abstract class MixinClientPlayerEntity {
         boolean isWalking = (tickInCycle % phaseTotal) < walkTicks;
 
         setKeyState(mc.options.forwardKey, isWalking && currentPhase == 0);
-        setKeyState(mc.options.rightKey,   isWalking && currentPhase == 1);
-        setKeyState(mc.options.backKey,    isWalking && currentPhase == 2);
-        setKeyState(mc.options.leftKey,    isWalking && currentPhase == 3);
+        setKeyState(mc.options.rightKey, isWalking && currentPhase == 1);
+        setKeyState(mc.options.backKey, isWalking && currentPhase == 2);
+        setKeyState(mc.options.leftKey, isWalking && currentPhase == 3);
     }
 
     @Unique
@@ -173,7 +184,7 @@ public abstract class MixinClientPlayerEntity {
         float seconds = AntiAfkConfig.useRandomInterval ?
                 AntiAfkConfig.minInterval + RANDOM.nextFloat() * (AntiAfkConfig.maxInterval - AntiAfkConfig.minInterval) :
                 AntiAfkConfig.interval;
-        currentTargetTicks = Math.max(2, (int)(seconds * 20f));
+        currentTargetTicks = Math.max(2, (int) (seconds * 20f));
     }
 
     @Unique

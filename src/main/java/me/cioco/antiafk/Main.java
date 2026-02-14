@@ -14,12 +14,10 @@ import org.lwjgl.glfw.GLFW;
 
 public class Main implements ModInitializer {
     public static final AntiAfkConfig config = new AntiAfkConfig();
+    public static final KeyBinding.Category CATEGORY_ANTIAFK = KeyBinding.Category.create(Identifier.of("antiafk", "key_category"));
     public static KeyBinding toggleKeyBinding;
     public static KeyBinding guiKeyBinding;
     public static boolean toggled = false;
-
-    public static final KeyBinding.Category CATEGORY_ANTIAFK = KeyBinding.Category.create(Identifier.of("antiafk", "key_category"));
-
 
     @Override
     public void onInitialize() {
@@ -42,15 +40,17 @@ public class Main implements ModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null) return;
-            while (toggleKeyBinding.wasPressed()) {
+            if (toggleKeyBinding.wasPressed()) {
                 toggled = !toggled;
+                if (client.currentScreen instanceof AntiAfkScreen screen) {
+                    screen.refreshGlobalToggle();
+                }
                 Text status = Text.literal("AntiAfk: ")
                         .append(Text.literal(toggled ? "Enabled" : "Disabled")
                                 .formatted(toggled ? Formatting.GREEN : Formatting.RED));
                 client.player.sendMessage(status, true);
             }
-
-            while (guiKeyBinding.wasPressed()) {
+            if (guiKeyBinding.wasPressed()) {
                 client.setScreen(new AntiAfkScreen(client.currentScreen));
             }
         });
