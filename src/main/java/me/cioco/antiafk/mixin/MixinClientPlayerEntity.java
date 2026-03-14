@@ -5,8 +5,7 @@ import me.cioco.antiafk.config.AntiAfkConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.component.DataComponentTypes;
+import net.minecraft.client.options.KeyBinding;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
@@ -117,7 +116,7 @@ public abstract class MixinClientPlayerEntity {
             handleRandomInventoryOpen(mc);
         } else if (inventoryOpenTicksRemaining > 0) {
             inventoryOpenTicksRemaining = 0;
-            mc.setScreen(null);
+            mc.openScreen(null);
         }
     }
 
@@ -141,8 +140,8 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private int findFoodSlot(PlayerEntity player) {
         for (int i = 0; i < 9; i++) {
-            ItemStack stack = player.getInventory().getStack(i);
-            if (!stack.isEmpty() && stack.getComponents().contains(DataComponentTypes.FOOD)) {
+            ItemStack stack = player.inventory.getStack(i);
+            if (!stack.isEmpty() && stack.getItem().isFood()) {
                 return i;
             }
         }
@@ -151,8 +150,8 @@ public abstract class MixinClientPlayerEntity {
 
     @Unique
     private void startEating(MinecraftClient mc, int slot) {
-        lastSlot = mc.player.getInventory().getSelectedSlot();
-        mc.player.getInventory().setSelectedSlot(slot);
+        lastSlot = mc.player.inventory.selectedSlot;
+        mc.player.inventory.selectedSlot = slot;
         mc.options.useKey.setPressed(true);
         isEating = true;
         eatTicksRemaining = 40;
@@ -161,7 +160,7 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private void stopEating(MinecraftClient mc) {
         if (mc.options != null) mc.options.useKey.setPressed(false);
-        if (mc.player != null && lastSlot != -1) mc.player.getInventory().setSelectedSlot(lastSlot);
+        if (mc.player != null && lastSlot != -1) mc.player.inventory.selectedSlot = lastSlot;
         isEating = false;
         lastSlot = -1;
         eatTicksRemaining = 0;
@@ -171,10 +170,10 @@ public abstract class MixinClientPlayerEntity {
     private void handleRandomHotbarSwitch(MinecraftClient mc, ClientPlayerEntity player) {
         if (mc.currentScreen != null || isEating) return;
         if (activeMovementTicks >= nextHotbarSwitchTick) {
-            int current = player.getInventory().getSelectedSlot();
+            int current = player.inventory.selectedSlot;
             int newSlot;
             do { newSlot = RANDOM.nextInt(9); } while (newSlot == current);
-            player.getInventory().setSelectedSlot(newSlot);
+            player.inventory.selectedSlot = newSlot;
             mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(newSlot));
             int minTicks = (int) (AntiAfkConfig.hotbarSwitchMinSeconds * 20f);
             int maxTicks = (int) (AntiAfkConfig.hotbarSwitchMaxSeconds * 20f);
@@ -212,8 +211,8 @@ public abstract class MixinClientPlayerEntity {
         ));
         ItemStack main = mc.player.getMainHandStack().copy();
         ItemStack off  = mc.player.getOffHandStack().copy();
-        mc.player.getInventory().setStack(mc.player.getInventory().getSelectedSlot(), off);
-        mc.player.getInventory().setStack(40, main);
+        mc.player.inventory.setStack(mc.player.inventory.selectedSlot, off);
+        mc.player.inventory.setStack(40, main);
     }
 
     @Unique
@@ -223,7 +222,7 @@ public abstract class MixinClientPlayerEntity {
         if (inventoryOpenTicksRemaining > 0) {
             inventoryOpenTicksRemaining--;
             if (inventoryOpenTicksRemaining == 0) {
-                mc.setScreen(null);
+                mc.openScreen(null);
             }
             return;
         }
@@ -231,7 +230,7 @@ public abstract class MixinClientPlayerEntity {
         if (mc.currentScreen != null) return;
 
         if (activeMovementTicks >= nextInventoryOpenTick) {
-            mc.setScreen(new InventoryScreen(mc.player));
+            mc.openScreen(new InventoryScreen(mc.player));
             int holdTicks = (int) (AntiAfkConfig.inventoryHoldSeconds * 20f);
             inventoryOpenTicksRemaining = Math.max(1, holdTicks);
             int minTicks = (int) (AntiAfkConfig.inventoryOpenMinSeconds * 20f);
@@ -243,11 +242,11 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private void forceStopAll(MinecraftClient mc) {
         if (mc.options == null) return;
-        setKeyState(mc.options.forwardKey, false);
-        setKeyState(mc.options.backKey,    false);
-        setKeyState(mc.options.leftKey,    false);
-        setKeyState(mc.options.rightKey,   false);
-        if (AntiAfkConfig.sneak) setKeyState(mc.options.sneakKey, false);
+        setKeyState(mc.options.keyForward, false);
+        setKeyState(mc.options.keyBack,    false);
+        setKeyState(mc.options.keyLeft,    false);
+        setKeyState(mc.options.keyRight,   false);
+        if (AntiAfkConfig.sneak) setKeyState(mc.options.keySneak, false);
         visualYawVelocity = 0;
     }
 
@@ -258,9 +257,9 @@ public abstract class MixinClientPlayerEntity {
             return;
         }
         visualYawVelocity = MathHelper.lerp(0.02f, visualYawVelocity, AntiAfkConfig.spinSpeed);
-        player.setYaw(player.getYaw() + visualYawVelocity);
+        player.yaw = player.yaw + visualYawVelocity;
         float verticalWave = (float) Math.sin(activeMovementTicks * 0.03f) * 20.0f;
-        player.setPitch(MathHelper.lerp(0.05f, player.getPitch(), verticalWave));
+        player.pitch = MathHelper.lerp(0.05f, player.pitch, verticalWave);
     }
 
     @Unique
@@ -275,10 +274,10 @@ public abstract class MixinClientPlayerEntity {
         int currentPhase  = tickInCycle / phaseTotal;
         boolean isWalking = (tickInCycle % phaseTotal) < walkTicks;
 
-        setKeyState(mc.options.forwardKey, isWalking && currentPhase == 0);
-        setKeyState(mc.options.rightKey,   isWalking && currentPhase == 1);
-        setKeyState(mc.options.backKey,    isWalking && currentPhase == 2);
-        setKeyState(mc.options.leftKey,    isWalking && currentPhase == 3);
+        setKeyState(mc.options.keyForward, isWalking && currentPhase == 0);
+        setKeyState(mc.options.keyRight,   isWalking && currentPhase == 1);
+        setKeyState(mc.options.keyBack,    isWalking && currentPhase == 2);
+        setKeyState(mc.options.keyLeft,    isWalking && currentPhase == 3);
     }
 
     @Unique
@@ -286,7 +285,7 @@ public abstract class MixinClientPlayerEntity {
         if (AntiAfkConfig.autoJumpEnabled && player.isOnGround()) player.jump();
         if (AntiAfkConfig.shouldSwing) player.swingHand(Hand.MAIN_HAND);
         if (AntiAfkConfig.sneak && mc.options != null) {
-            setKeyState(mc.options.sneakKey, !mc.options.sneakKey.isPressed());
+            setKeyState(mc.options.keySneak, !mc.options.keySneak.isPressed());
         }
     }
 
@@ -295,8 +294,8 @@ public abstract class MixinClientPlayerEntity {
         if (!AntiAfkConfig.mouseMovement) { isAnchored = false; return; }
 
         if (!isAnchored) {
-            anchorYaw   = player.getYaw();
-            anchorPitch = player.getPitch();
+            anchorYaw   = player.yaw;
+            anchorPitch = player.pitch;
             targetYaw   = anchorYaw;
             targetPitch = anchorPitch;
             isAnchored  = true;
@@ -305,8 +304,14 @@ public abstract class MixinClientPlayerEntity {
             targetYaw   = anchorYaw + (RANDOM.nextFloat() - 0.5f) * 60f * AntiAfkConfig.horizontalMultiplier;
             targetPitch = MathHelper.clamp(anchorPitch + (RANDOM.nextFloat() - 0.5f) * 30f * AntiAfkConfig.verticalMultiplier, -90f, 90f);
         }
-        player.setYaw(MathHelper.lerpAngleDegrees(0.03f, player.getYaw(), targetYaw));
-        player.setPitch(MathHelper.lerp(0.03f, player.getPitch(), targetPitch));
+        player.yaw = lerpAngleDegrees(0.03f, player.yaw, targetYaw);
+        player.pitch = MathHelper.lerp(0.03f, player.pitch, targetPitch);
+    }
+
+    @Unique
+    private float lerpAngleDegrees(float delta, float start, float end) {
+        float diff = MathHelper.wrapDegrees(end - start);
+        return start + delta * diff;
     }
 
     @Unique

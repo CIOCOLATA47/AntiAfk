@@ -2,12 +2,12 @@ package me.cioco.antiafk.gui;
 
 import me.cioco.antiafk.Main;
 import me.cioco.antiafk.config.AntiAfkConfig;
-import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.tooltip.Tooltip;
+import net.minecraft.client.gui.widget.AbstractButtonWidget;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
@@ -23,7 +23,7 @@ public class AntiAfkScreen extends Screen {
 
     private final Screen parent;
     private final AntiAfkConfig config = new AntiAfkConfig();
-    private final List<ClickableWidget> scrollableWidgets = new ArrayList<>();
+    private final List<AbstractButtonWidget> scrollableWidgets = new ArrayList<>();
 
     private int scrollOffset = 0;
     private int maxScroll;
@@ -35,13 +35,14 @@ public class AntiAfkScreen extends Screen {
     private int[] sectionRows = new int[5];
 
     public AntiAfkScreen(Screen parent) {
-        super(Text.literal("Anti-AFK Configuration"));
+        super(new LiteralText("Anti-AFK Configuration"));
         this.parent = parent;
     }
 
     @Override
     protected void init() {
-        this.clearChildren();
+        this.buttons.clear();
+        this.children().clear();
         this.scrollableWidgets.clear();
 
         int centerX  = width / 2;
@@ -112,118 +113,128 @@ public class AntiAfkScreen extends Screen {
         maxScroll = Math.max(0, contentHeight - (height - 90));
         if (scrollOffset > maxScroll) scrollOffset = maxScroll;
 
-        globalToggleButton = ButtonWidget.builder(
+        globalToggleButton = new ButtonWidget(
+                centerX - 100, height - 60, 200, 20,
                 getGlobalToggleText(),
                 b -> { Main.toggled = !Main.toggled; b.setMessage(getGlobalToggleText()); }
-        ).dimensions(centerX - 100, height - 60, 200, 20).build();
-        addDrawableChild(globalToggleButton);
+        );
+        addButton(globalToggleButton);
 
-        doneButton = ButtonWidget.builder(
-                Text.literal("SAVE & EXIT").formatted(Formatting.GOLD, Formatting.BOLD),
-                b -> this.close()
-        ).dimensions(centerX - 100, height - 30, 200, 20).build();
-        addDrawableChild(doneButton);
+        doneButton = new ButtonWidget(
+                centerX - 100, height - 30, 200, 20,
+                new LiteralText("SAVE & EXIT").formatted(Formatting.GOLD, Formatting.BOLD),
+                b -> this.onClose()
+        );
+        addButton(doneButton);
 
-        for (ClickableWidget widget : scrollableWidgets) {
-            widget.setY(widget.getY() - scrollOffset);
+        for (AbstractButtonWidget widget : scrollableWidgets) {
+            widget.y = widget.y - scrollOffset;
         }
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        renderInGameBackground(ctx);
+    public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
+        renderBackground(matrices);
 
         int cx     = width / 2;
         int panelW = 325;
         int panelX = cx - (panelW / 2);
 
-        ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("Anti-AFK Settings").formatted(Formatting.GOLD, Formatting.BOLD, Formatting.UNDERLINE),
+        drawCenteredString(matrices, textRenderer,
+                new LiteralText("Anti-AFK Settings").formatted(Formatting.GOLD, Formatting.BOLD, Formatting.UNDERLINE).getString(),
                 cx, 15, 0xFFFFFFFF);
 
-        ctx.enableScissor(0, 40, width, height - 40);
+        // Manual scissor using GL
+        double scaleFactor = this.client.getWindow().getScaleFactor();
+        int scissorY = (int) ((height - (height - 40)) * scaleFactor);
+        int scissorH = (int) ((height - 80) * scaleFactor);
+        com.mojang.blaze3d.systems.RenderSystem.enableScissor(
+                0, scissorY, (int) (width * scaleFactor), scissorH
+        );
 
         String[] titles = { "Player Actions", "Movement & Behavior", "Advanced Timing", "Inventory & Eating", "Feature Timing" };
         for (int i = 0; i < sectionY.length; i++) {
-            renderSectionGroup(ctx, panelX, sectionY[i] - scrollOffset, panelW, sectionRows[i], titles[i]);
+            renderSectionGroup(matrices, panelX, sectionY[i] - scrollOffset, panelW, sectionRows[i], titles[i]);
         }
 
-        for (ClickableWidget widget : scrollableWidgets) {
-            widget.visible = (widget.getY() + widget.getHeight() > 40 && widget.getY() < height - 40);
-            if (widget.visible) widget.render(ctx, mouseX, mouseY, delta);
+        for (AbstractButtonWidget widget : scrollableWidgets) {
+            widget.visible = (widget.y + widget.getHeight() > 40 && widget.y < height - 40);
+            if (widget.visible) widget.render(matrices, mouseX, mouseY, delta);
         }
-        ctx.disableScissor();
+        com.mojang.blaze3d.systems.RenderSystem.disableScissor();
 
-        globalToggleButton.render(ctx, mouseX, mouseY, delta);
-        doneButton.render(ctx, mouseX, mouseY, delta);
+        globalToggleButton.render(matrices, mouseX, mouseY, delta);
+        doneButton.render(matrices, mouseX, mouseY, delta);
 
-        drawScrollBar(ctx);
+        drawScrollBar(matrices);
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
         if (maxScroll > 0) {
             int oldOffset = scrollOffset;
-            scrollOffset = (int) Math.max(0, Math.min(maxScroll, scrollOffset - (verticalAmount * 25)));
+            scrollOffset = (int) Math.max(0, Math.min(maxScroll, scrollOffset - (amount * 25)));
             int diff = oldOffset - scrollOffset;
-            for (ClickableWidget widget : scrollableWidgets) {
-                widget.setY(widget.getY() + diff);
+            for (AbstractButtonWidget widget : scrollableWidgets) {
+                widget.y = widget.y + diff;
             }
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        return super.mouseScrolled(mouseX, mouseY, amount);
     }
 
-    private void drawScrollBar(DrawContext ctx) {
+    private void drawScrollBar(MatrixStack matrices) {
         if (maxScroll <= 0) return;
         int trackX      = width - 6;
         int trackY      = 40;
         int trackHeight = height - 80;
         int thumbHeight = Math.max(20, (int) ((float) trackHeight * (trackHeight / (float) contentHeight)));
         int thumbY      = trackY + (int) ((trackHeight - thumbHeight) * ((float) scrollOffset / maxScroll));
-        ctx.fill(trackX, trackY, width - 2, trackY + trackHeight, 0x40000000);
-        ctx.fill(trackX, thumbY, width - 2, thumbY + thumbHeight, 0xFFFFAA00);
+        fill(matrices, trackX, trackY, width - 2, trackY + trackHeight, 0x40000000);
+        fill(matrices, trackX, thumbY, width - 2, thumbY + thumbHeight, 0xFFFFAA00);
     }
 
     private void addToggleButton(int x, int y, String label, String desc, boolean val, Consumer<Boolean> action) {
-        ButtonWidget btn = ButtonWidget.builder(getToggleText(label, val), b -> {
+        ButtonWidget btn = new ButtonWidget(x, y, 150, 20, getToggleText(label, val), b -> {
             boolean currentlyOn = b.getMessage().getString().contains("ON");
             action.accept(!currentlyOn);
             b.setMessage(getToggleText(label, !currentlyOn));
-        }).dimensions(x, y, 150, 20).tooltip(Tooltip.of(Text.literal("§e" + desc))).build();
+        });
         scrollableWidgets.add(btn);
-        addDrawableChild(btn);
+        addButton(btn);
     }
 
     private void addSlider(int x, int y, int w, String label, float cur, float min, float max, Consumer<Float> action) {
         GenericSlider slider = new GenericSlider(x, y, w, 20, label, cur, min, max, action);
         scrollableWidgets.add(slider);
-        addDrawableChild(slider);
+        addButton(slider);
     }
 
-    private void renderSectionGroup(DrawContext ctx, int x, int y, int w, int rows, String title) {
+    private void renderSectionGroup(MatrixStack matrices, int x, int y, int w, int rows, String title) {
         int contentH = rows * SPACING_Y;
-        drawStyledPanel(ctx, x, y - TITLE_HEIGHT - 5, w, contentH + TITLE_HEIGHT + 10);
-        ctx.drawTextWithShadow(textRenderer, "§6§l» §f" + title, x + 8, y - TITLE_HEIGHT + 1, 0xFFFFFFFF);
-        ctx.fill(x + 5, y - 6, x + w - 5, y - 5, 0x80FFAA00);
+        drawStyledPanel(matrices, x, y - TITLE_HEIGHT - 5, w, contentH + TITLE_HEIGHT + 10);
+        drawStringWithShadow(matrices, textRenderer, "\u00a76\u00a7l\u00bb \u00a7f" + title, x + 8, y - TITLE_HEIGHT + 1, 0xFFFFFFFF);
+        fill(matrices, x + 5, y - 6, x + w - 5, y - 5, 0x80FFAA00);
     }
 
-    private void drawStyledPanel(DrawContext context, int x, int y, int width, int height) {
-        context.fill(x, y, x + width, y + height, 0x90000000);
-        context.fill(x, y, x + 2, y + height, 0xFFFFAA00);
-        context.fill(x + width - 2, y, x + width, y + height, 0xFFFFAA00);
+    private void drawStyledPanel(MatrixStack matrices, int x, int y, int width, int height) {
+        fill(matrices, x, y, x + width, y + height, 0x90000000);
+        fill(matrices, x, y, x + 2, y + height, 0xFFFFAA00);
+        fill(matrices, x + width - 2, y, x + width, y + height, 0xFFFFAA00);
     }
 
     private Text getToggleText(String label, boolean value) {
-        return Text.literal(label + ": ").append(
-                value ? Text.literal("ON").formatted(Formatting.GREEN)
-                        : Text.literal("OFF").formatted(Formatting.RED));
+        LiteralText text = new LiteralText(label + ": ");
+        text.append(value ? new LiteralText("ON").formatted(Formatting.GREEN)
+                : new LiteralText("OFF").formatted(Formatting.RED));
+        return text;
     }
 
     private Text getGlobalToggleText() {
-        return Text.literal("AntiAFK: ").append(
-                Main.toggled ? Text.literal("Enabled").formatted(Formatting.GREEN)
-                        : Text.literal("Disabled").formatted(Formatting.RED));
+        LiteralText text = new LiteralText("AntiAFK: ");
+        text.append(Main.toggled ? new LiteralText("Enabled").formatted(Formatting.GREEN)
+                : new LiteralText("Disabled").formatted(Formatting.RED));
+        return text;
     }
 
     public void refreshGlobalToggle() {
@@ -233,10 +244,10 @@ public class AntiAfkScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         this.config.saveConfiguration();
         if (this.client != null) {
-            this.client.setScreen(this.parent);
+            this.client.openScreen(this.parent);
         }
     }
 
@@ -246,7 +257,7 @@ public class AntiAfkScreen extends Screen {
         private final Consumer<Float> updateAction;
 
         public GenericSlider(int x, int y, int w, int h, String label, float cur, float min, float max, Consumer<Float> action) {
-            super(x, y, w, h, Text.empty(), (double) (cur - min) / (max - min));
+            super(x, y, w, h, LiteralText.EMPTY, (double) (cur - min) / (max - min));
             this.label = label;
             this.min = min;
             this.max = max;
@@ -257,7 +268,7 @@ public class AntiAfkScreen extends Screen {
         @Override
         protected void updateMessage() {
             float val = min + (float) (this.value * (max - min));
-            this.setMessage(Text.literal(label + ": §e" + String.format("%.1f", val)));
+            this.setMessage(new LiteralText(label + ": \u00a7e" + String.format("%.1f", val)));
         }
 
         @Override
