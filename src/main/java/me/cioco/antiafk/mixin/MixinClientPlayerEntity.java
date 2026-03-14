@@ -152,14 +152,14 @@ public abstract class MixinClientPlayerEntity {
     private void startEating(MinecraftClient mc, int slot) {
         lastSlot = mc.player.inventory.selectedSlot;
         mc.player.inventory.selectedSlot = slot;
-        mc.options.useKey.setPressed(true);
+        mc.options.keyUse.setPressed(true);
         isEating = true;
         eatTicksRemaining = 40;
     }
 
     @Unique
     private void stopEating(MinecraftClient mc) {
-        if (mc.options != null) mc.options.useKey.setPressed(false);
+        if (mc.options != null) mc.options.keyUse.setPressed(false);
         if (mc.player != null && lastSlot != -1) mc.player.inventory.selectedSlot = lastSlot;
         isEating = false;
         lastSlot = -1;

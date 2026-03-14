@@ -144,13 +144,14 @@ public class AntiAfkScreen extends Screen {
                 new LiteralText("Anti-AFK Settings").formatted(Formatting.GOLD, Formatting.BOLD, Formatting.UNDERLINE).getString(),
                 cx, 15, 0xFFFFFFFF);
 
-        // Manual scissor using GL
+        // Manual scissor using GL11
         double scaleFactor = this.client.getWindow().getScaleFactor();
-        int scissorY = (int) ((height - (height - 40)) * scaleFactor);
+        int scissorX = 0;
+        int scissorY = (int) (40 * scaleFactor);
+        int scissorW = (int) (width * scaleFactor);
         int scissorH = (int) ((height - 80) * scaleFactor);
-        com.mojang.blaze3d.systems.RenderSystem.enableScissor(
-                0, scissorY, (int) (width * scaleFactor), scissorH
-        );
+        org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL11.GL_SCISSOR_TEST);
+        org.lwjgl.opengl.GL11.glScissor(scissorX, scissorY, scissorW, scissorH);
 
         String[] titles = { "Player Actions", "Movement & Behavior", "Advanced Timing", "Inventory & Eating", "Feature Timing" };
         for (int i = 0; i < sectionY.length; i++) {
@@ -161,7 +162,7 @@ public class AntiAfkScreen extends Screen {
             widget.visible = (widget.y + widget.getHeight() > 40 && widget.y < height - 40);
             if (widget.visible) widget.render(matrices, mouseX, mouseY, delta);
         }
-        com.mojang.blaze3d.systems.RenderSystem.disableScissor();
+        org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_SCISSOR_TEST);
 
         globalToggleButton.render(matrices, mouseX, mouseY, delta);
         doneButton.render(matrices, mouseX, mouseY, delta);
