@@ -1,8 +1,8 @@
 package me.cioco.antiafk.config;
 
 import net.fabricmc.loader.api.FabricLoader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +14,7 @@ import java.util.Properties;
 public class AntiAfkConfig {
 
     public static final String CONFIG_FILE = "antiafk-config.properties";
-    private static final Logger LOGGER = LoggerFactory.getLogger(AntiAfkConfig.class);
+    private static final Logger LOGGER = LogManager.getLogger(AntiAfkConfig.class);
 
     public static boolean autoJumpEnabled = true;
     public static boolean mouseMovement = false;
