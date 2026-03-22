@@ -21,7 +21,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.Arrays;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Mixin(ClientPlayerEntity.class)
 public abstract class MixinClientPlayerEntity {
@@ -55,6 +58,12 @@ public abstract class MixinClientPlayerEntity {
     @Unique private int nextInventoryOpenTick = 0;
     @Unique private int inventoryOpenTicksRemaining = 0;
 
+    @Unique private int nextJitterTick = 0;
+    @Unique private float jitterYaw = 0f;
+    @Unique private float jitterPitch = 0f;
+
+    @Unique private int nextChatMessageTick = 0;
+
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -85,6 +94,10 @@ public abstract class MixinClientPlayerEntity {
         wasActive = true;
         activeMovementTicks++;
 
+        if (AntiAfkConfig.autoDisconnectEnabled && activeMovementTicks % 10 == 0) {
+            handleAutoDisconnect(mc, player);
+        }
+
         if (AntiAfkConfig.autoEatEnabled) {
             handleAutoEat(mc, player);
         } else if (isEating) {
@@ -101,6 +114,7 @@ public abstract class MixinClientPlayerEntity {
 
         handleUltraSmoothSpin(player);
         handleMouseMovement(player);
+        handleMouseJitter(player);
 
         if (AntiAfkConfig.randomHotbarEnabled) {
             handleRandomHotbarSwitch(mc, player);
@@ -119,18 +133,49 @@ public abstract class MixinClientPlayerEntity {
             inventoryOpenTicksRemaining = 0;
             mc.setScreen(null);
         }
+
+        handleChatMessages(mc);
+    }
+
+    @Unique
+    private void handleAutoDisconnect(MinecraftClient mc, ClientPlayerEntity self) {
+        if (mc.world == null || mc.player == null) return;
+
+        String ignoredRaw = AntiAfkConfig.autoDisconnectIgnoredPlayers;
+        Set<String> ignored = (ignoredRaw != null && !ignoredRaw.isBlank())
+                ? Arrays.stream(ignoredRaw.split(";"))
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet())
+                : Set.of();
+
+        double radiusSq = AntiAfkConfig.autoDisconnectRadius * AntiAfkConfig.autoDisconnectRadius;
+
+        boolean threat = mc.world.getPlayers().stream()
+                .filter(p -> p != self)
+                .filter(p -> !ignored.contains(p.getName().getString().toLowerCase()))
+                .anyMatch(p -> p.squaredDistanceTo(self) <= radiusSq);
+
+        if (threat) {
+            mc.execute(() -> {
+                if (mc.getNetworkHandler() != null) {
+                    mc.getNetworkHandler().getConnection().disconnect(
+                            net.minecraft.text.Text.literal("[AntiAFK] Player nearby — disconnected")
+                    );
+                }
+            });
+        }
     }
 
     @Unique
     private void handleAutoEat(MinecraftClient mc, ClientPlayerEntity player) {
         if (mc.options == null) return;
-
         if (isEating) {
             eatTicksRemaining--;
             if (eatTicksRemaining <= 0) stopEating(mc);
             return;
         }
-
         int foodLevel = player.getHungerManager().getFoodLevel();
         if (foodLevel <= (int) AntiAfkConfig.eatFoodLevel) {
             int foodSlot = findFoodSlot(player);
@@ -176,8 +221,8 @@ public abstract class MixinClientPlayerEntity {
             do { newSlot = RANDOM.nextInt(9); } while (newSlot == current);
             player.getInventory().setSelectedSlot(newSlot);
             mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(newSlot));
-            int minTicks = (int) (AntiAfkConfig.hotbarSwitchMinSeconds * 20f);
-            int maxTicks = (int) (AntiAfkConfig.hotbarSwitchMaxSeconds * 20f);
+            int minTicks = (int)(AntiAfkConfig.hotbarSwitchMinSeconds * 20f);
+            int maxTicks = (int)(AntiAfkConfig.hotbarSwitchMaxSeconds * 20f);
             nextHotbarSwitchTick = activeMovementTicks + minTicks + RANDOM.nextInt(Math.max(1, maxTicks - minTicks));
         }
     }
@@ -185,20 +230,18 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private void handleRandomOffhandSwap(MinecraftClient mc) {
         if (mc.currentScreen != null || isEating) return;
-
         if (offhandSwapped && activeMovementTicks >= offhandSwapBackTick) {
             doSwap(mc);
             offhandSwapped = false;
-            int minTicks = (int) (AntiAfkConfig.offhandSwapMinSeconds * 20f);
-            int maxTicks = (int) (AntiAfkConfig.offhandSwapMaxSeconds * 20f);
+            int minTicks = (int)(AntiAfkConfig.offhandSwapMinSeconds * 20f);
+            int maxTicks = (int)(AntiAfkConfig.offhandSwapMaxSeconds * 20f);
             nextOffhandSwapTick = activeMovementTicks + minTicks + RANDOM.nextInt(Math.max(1, maxTicks - minTicks));
             return;
         }
-
         if (!offhandSwapped && activeMovementTicks >= nextOffhandSwapTick) {
             doSwap(mc);
             offhandSwapped = true;
-            int holdTicks = (int) (AntiAfkConfig.offhandHoldSeconds * 20f);
+            int holdTicks = (int)(AntiAfkConfig.offhandHoldSeconds * 20f);
             offhandSwapBackTick = activeMovementTicks + Math.max(1, holdTicks);
         }
     }
@@ -219,23 +262,18 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private void handleRandomInventoryOpen(MinecraftClient mc) {
         if (isEating) return;
-
         if (inventoryOpenTicksRemaining > 0) {
             inventoryOpenTicksRemaining--;
-            if (inventoryOpenTicksRemaining == 0) {
-                mc.setScreen(null);
-            }
+            if (inventoryOpenTicksRemaining == 0) mc.setScreen(null);
             return;
         }
-
         if (mc.currentScreen != null) return;
-
         if (activeMovementTicks >= nextInventoryOpenTick) {
             mc.setScreen(new InventoryScreen(mc.player));
-            int holdTicks = (int) (AntiAfkConfig.inventoryHoldSeconds * 20f);
+            int holdTicks = (int)(AntiAfkConfig.inventoryHoldSeconds * 20f);
             inventoryOpenTicksRemaining = Math.max(1, holdTicks);
-            int minTicks = (int) (AntiAfkConfig.inventoryOpenMinSeconds * 20f);
-            int maxTicks = (int) (AntiAfkConfig.inventoryOpenMaxSeconds * 20f);
+            int minTicks = (int)(AntiAfkConfig.inventoryOpenMinSeconds * 20f);
+            int maxTicks = (int)(AntiAfkConfig.inventoryOpenMaxSeconds * 20f);
             nextInventoryOpenTick = activeMovementTicks + minTicks + RANDOM.nextInt(Math.max(1, maxTicks - minTicks));
         }
     }
@@ -253,10 +291,7 @@ public abstract class MixinClientPlayerEntity {
 
     @Unique
     private void handleUltraSmoothSpin(ClientPlayerEntity player) {
-        if (!AntiAfkConfig.autoSpinEnabled) {
-            visualYawVelocity = 0;
-            return;
-        }
+        if (!AntiAfkConfig.autoSpinEnabled) { visualYawVelocity = 0; return; }
         visualYawVelocity = MathHelper.lerp(0.02f, visualYawVelocity, AntiAfkConfig.spinSpeed);
         player.setYaw(player.getYaw() + visualYawVelocity);
         float verticalWave = (float) Math.sin(activeMovementTicks * 0.03f) * 20.0f;
@@ -267,14 +302,12 @@ public abstract class MixinClientPlayerEntity {
     private void handleSmoothMovement(MinecraftClient mc, ClientPlayerEntity player) {
         if (mc.options == null || !AntiAfkConfig.movementEnabled) return;
         if (mc.currentScreen != null) { forceStopAll(mc); return; }
-
         int walkTicks  = 40;
         int pauseTicks = 10;
         int phaseTotal = walkTicks + pauseTicks;
-        int tickInCycle   = activeMovementTicks % (phaseTotal * 4);
-        int currentPhase  = tickInCycle / phaseTotal;
+        int tickInCycle  = activeMovementTicks % (phaseTotal * 4);
+        int currentPhase = tickInCycle / phaseTotal;
         boolean isWalking = (tickInCycle % phaseTotal) < walkTicks;
-
         setKeyState(mc.options.forwardKey, isWalking && currentPhase == 0);
         setKeyState(mc.options.rightKey,   isWalking && currentPhase == 1);
         setKeyState(mc.options.backKey,    isWalking && currentPhase == 2);
@@ -293,7 +326,6 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private void handleMouseMovement(ClientPlayerEntity player) {
         if (!AntiAfkConfig.mouseMovement) { isAnchored = false; return; }
-
         if (!isAnchored) {
             anchorYaw   = player.getYaw();
             anchorPitch = player.getPitch();
@@ -310,11 +342,45 @@ public abstract class MixinClientPlayerEntity {
     }
 
     @Unique
+    private void handleMouseJitter(ClientPlayerEntity player) {
+        if (!AntiAfkConfig.mouseJitterEnabled) return;
+        if (activeMovementTicks >= nextJitterTick) {
+            float range = AntiAfkConfig.jitterStrength;
+            jitterYaw   = (RANDOM.nextFloat() - 0.5f) * range;
+            jitterPitch = (RANDOM.nextFloat() - 0.5f) * range * 0.5f;
+            nextJitterTick = activeMovementTicks + 2 + RANDOM.nextInt(4);
+        }
+        player.setYaw(player.getYaw() + jitterYaw);
+        player.setPitch(MathHelper.clamp(player.getPitch() + jitterPitch, -90f, 90f));
+    }
+
+    @Unique
+    private void handleChatMessages(MinecraftClient mc) {
+        if (!AntiAfkConfig.chatMessagesEnabled) return;
+        if (mc.player == null || mc.getNetworkHandler() == null) return;
+        if (activeMovementTicks >= nextChatMessageTick) {
+            String raw = AntiAfkConfig.chatMessages;
+            if (raw != null && !raw.isBlank()) {
+                String[] messages = raw.split(";");
+                if (messages.length > 0) {
+                    String msg = messages[RANDOM.nextInt(messages.length)].trim();
+                    if (!msg.isEmpty()) {
+                        mc.player.networkHandler.sendChatMessage(msg);
+                    }
+                }
+            }
+            int minT = (int)(AntiAfkConfig.chatMessageMinSeconds * 20f);
+            int maxT = (int)(AntiAfkConfig.chatMessageMaxSeconds * 20f);
+            nextChatMessageTick = activeMovementTicks + minT + RANDOM.nextInt(Math.max(1, maxT - minT));
+        }
+    }
+
+    @Unique
     private void calculateNextInterval() {
         float seconds = AntiAfkConfig.useRandomInterval
                 ? AntiAfkConfig.minInterval + RANDOM.nextFloat() * (AntiAfkConfig.maxInterval - AntiAfkConfig.minInterval)
                 : AntiAfkConfig.interval;
-        currentTargetTicks = Math.max(2, (int) (seconds * 20f));
+        currentTargetTicks = Math.max(2, (int)(seconds * 20f));
     }
 
     @Unique

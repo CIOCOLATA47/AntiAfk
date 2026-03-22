@@ -51,6 +51,21 @@ public class AntiAfkConfig {
     public static float inventoryOpenMaxSeconds = 25.0f;
     public static float inventoryHoldSeconds = 2.0f;
 
+    public static boolean autoReconnectEnabled = false;
+    public static float reconnectDelaySeconds = 5.0f;
+
+    public static boolean mouseJitterEnabled = false;
+    public static float jitterStrength = 1.5f;
+
+    public static boolean chatMessagesEnabled = false;
+    public static float chatMessageMinSeconds = 30.0f;
+    public static float chatMessageMaxSeconds = 120.0f;
+    public static String chatMessages = "Hey!;Still here!;Just farming!";
+
+    public static boolean autoDisconnectEnabled = false;
+    public static float autoDisconnectRadius = 10.0f;
+    public static String autoDisconnectIgnoredPlayers = "";
+
     public void saveConfiguration() {
         try {
             Path configPath = getConfigPath();
@@ -85,6 +100,17 @@ public class AntiAfkConfig {
                 props.setProperty("inventoryOpenMinSeconds", String.valueOf(inventoryOpenMinSeconds));
                 props.setProperty("inventoryOpenMaxSeconds", String.valueOf(inventoryOpenMaxSeconds));
                 props.setProperty("inventoryHoldSeconds", String.valueOf(inventoryHoldSeconds));
+                props.setProperty("autoReconnectEnabled", String.valueOf(autoReconnectEnabled));
+                props.setProperty("reconnectDelaySeconds", String.valueOf(reconnectDelaySeconds));
+                props.setProperty("mouseJitterEnabled", String.valueOf(mouseJitterEnabled));
+                props.setProperty("jitterStrength", String.valueOf(jitterStrength));
+                props.setProperty("chatMessagesEnabled", String.valueOf(chatMessagesEnabled));
+                props.setProperty("chatMessageMinSeconds", String.valueOf(chatMessageMinSeconds));
+                props.setProperty("chatMessageMaxSeconds", String.valueOf(chatMessageMaxSeconds));
+                props.setProperty("chatMessages", chatMessages);
+                props.setProperty("autoDisconnectEnabled", String.valueOf(autoDisconnectEnabled));
+                props.setProperty("autoDisconnectRadius", String.valueOf(autoDisconnectRadius));
+                props.setProperty("autoDisconnectIgnoredPlayers", autoDisconnectIgnoredPlayers != null ? autoDisconnectIgnoredPlayers : "");
                 props.store(output, "Anti-AFK Config");
             }
         } catch (IOException e) {
@@ -100,33 +126,44 @@ public class AntiAfkConfig {
             Properties props = new Properties();
             props.load(input);
 
-            autoJumpEnabled = Boolean.parseBoolean(props.getProperty("autoJumpEnabled", "true"));
-            mouseMovement = Boolean.parseBoolean(props.getProperty("mouseMovement", "false"));
-            sneak = Boolean.parseBoolean(props.getProperty("sneak", "false"));
-            autoSpinEnabled = Boolean.parseBoolean(props.getProperty("autoSpinEnabled", "false"));
-            shouldSwing = Boolean.parseBoolean(props.getProperty("shouldSwing", "false"));
-            movementEnabled = Boolean.parseBoolean(props.getProperty("movementEnabled", "false"));
-            randomPauseEnabled = Boolean.parseBoolean(props.getProperty("randomPauseEnabled", "false"));
-            autoEatEnabled = Boolean.parseBoolean(props.getProperty("autoEatEnabled", "true"));
-            randomHotbarEnabled = Boolean.parseBoolean(props.getProperty("randomHotbarEnabled", "false"));
-            offhandSwapEnabled = Boolean.parseBoolean(props.getProperty("offhandSwapEnabled", "false"));
+            autoJumpEnabled        = Boolean.parseBoolean(props.getProperty("autoJumpEnabled", "true"));
+            mouseMovement          = Boolean.parseBoolean(props.getProperty("mouseMovement", "false"));
+            sneak                  = Boolean.parseBoolean(props.getProperty("sneak", "false"));
+            autoSpinEnabled        = Boolean.parseBoolean(props.getProperty("autoSpinEnabled", "false"));
+            shouldSwing            = Boolean.parseBoolean(props.getProperty("shouldSwing", "false"));
+            movementEnabled        = Boolean.parseBoolean(props.getProperty("movementEnabled", "false"));
+            randomPauseEnabled     = Boolean.parseBoolean(props.getProperty("randomPauseEnabled", "false"));
+            autoEatEnabled         = Boolean.parseBoolean(props.getProperty("autoEatEnabled", "true"));
+            randomHotbarEnabled    = Boolean.parseBoolean(props.getProperty("randomHotbarEnabled", "false"));
+            offhandSwapEnabled     = Boolean.parseBoolean(props.getProperty("offhandSwapEnabled", "false"));
             randomInventoryEnabled = Boolean.parseBoolean(props.getProperty("randomInventoryEnabled", "false"));
-            interval = Float.parseFloat(props.getProperty("interval", "5.0"));
-            minInterval = Float.parseFloat(props.getProperty("minInterval", "3.0"));
-            maxInterval = Float.parseFloat(props.getProperty("maxInterval", "7.0"));
-            useRandomInterval = Boolean.parseBoolean(props.getProperty("useRandomInterval", "false"));
-            horizontalMultiplier = Float.parseFloat(props.getProperty("horizontalMultiplier", "2.0"));
-            verticalMultiplier = Float.parseFloat(props.getProperty("verticalMultiplier", "1.5"));
-            spinSpeed = Float.parseFloat(props.getProperty("spinSpeed", "5.0"));
-            eatFoodLevel = Float.parseFloat(props.getProperty("eatFoodLevel", "16.0"));
+            interval               = Float.parseFloat(props.getProperty("interval", "5.0"));
+            minInterval            = Float.parseFloat(props.getProperty("minInterval", "3.0"));
+            maxInterval            = Float.parseFloat(props.getProperty("maxInterval", "7.0"));
+            useRandomInterval      = Boolean.parseBoolean(props.getProperty("useRandomInterval", "false"));
+            horizontalMultiplier   = Float.parseFloat(props.getProperty("horizontalMultiplier", "2.0"));
+            verticalMultiplier     = Float.parseFloat(props.getProperty("verticalMultiplier", "1.5"));
+            spinSpeed              = Float.parseFloat(props.getProperty("spinSpeed", "5.0"));
+            eatFoodLevel           = Float.parseFloat(props.getProperty("eatFoodLevel", "16.0"));
             hotbarSwitchMinSeconds = Float.parseFloat(props.getProperty("hotbarSwitchMinSeconds", "5.0"));
             hotbarSwitchMaxSeconds = Float.parseFloat(props.getProperty("hotbarSwitchMaxSeconds", "15.0"));
-            offhandSwapMinSeconds = Float.parseFloat(props.getProperty("offhandSwapMinSeconds", "15.0"));
-            offhandSwapMaxSeconds = Float.parseFloat(props.getProperty("offhandSwapMaxSeconds", "45.0"));
-            offhandHoldSeconds = Float.parseFloat(props.getProperty("offhandHoldSeconds", "3.0"));
-            inventoryOpenMinSeconds = Float.parseFloat(props.getProperty("inventoryOpenMinSeconds", "10.0"));
-            inventoryOpenMaxSeconds = Float.parseFloat(props.getProperty("inventoryOpenMaxSeconds", "25.0"));
-            inventoryHoldSeconds = Float.parseFloat(props.getProperty("inventoryHoldSeconds", "2.0"));
+            offhandSwapMinSeconds  = Float.parseFloat(props.getProperty("offhandSwapMinSeconds", "15.0"));
+            offhandSwapMaxSeconds  = Float.parseFloat(props.getProperty("offhandSwapMaxSeconds", "45.0"));
+            offhandHoldSeconds     = Float.parseFloat(props.getProperty("offhandHoldSeconds", "3.0"));
+            inventoryOpenMinSeconds= Float.parseFloat(props.getProperty("inventoryOpenMinSeconds", "10.0"));
+            inventoryOpenMaxSeconds= Float.parseFloat(props.getProperty("inventoryOpenMaxSeconds", "25.0"));
+            inventoryHoldSeconds   = Float.parseFloat(props.getProperty("inventoryHoldSeconds", "2.0"));
+            autoReconnectEnabled   = Boolean.parseBoolean(props.getProperty("autoReconnectEnabled", "false"));
+            reconnectDelaySeconds  = Float.parseFloat(props.getProperty("reconnectDelaySeconds", "5.0"));
+            mouseJitterEnabled     = Boolean.parseBoolean(props.getProperty("mouseJitterEnabled", "false"));
+            jitterStrength         = Float.parseFloat(props.getProperty("jitterStrength", "1.5"));
+            chatMessagesEnabled    = Boolean.parseBoolean(props.getProperty("chatMessagesEnabled", "false"));
+            chatMessageMinSeconds  = Float.parseFloat(props.getProperty("chatMessageMinSeconds", "30.0"));
+            chatMessageMaxSeconds  = Float.parseFloat(props.getProperty("chatMessageMaxSeconds", "120.0"));
+            chatMessages           = props.getProperty("chatMessages", "Hey!;Still here!;Just farming");
+            autoDisconnectEnabled  = Boolean.parseBoolean(props.getProperty("autoDisconnectEnabled", "false"));
+            autoDisconnectRadius   = Float.parseFloat(props.getProperty("autoDisconnectRadius", "10.0"));
+            autoDisconnectIgnoredPlayers = props.getProperty("autoDisconnectIgnoredPlayers", "");
         } catch (Exception e) {
             LOGGER.error("Failed to load AntiAFK config", e);
         }

@@ -8,6 +8,7 @@ import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
@@ -17,8 +18,8 @@ import java.util.function.Consumer;
 
 public class AntiAfkScreen extends Screen {
 
-    private static final int SPACING_Y    = 24;
-    private static final int SECTION_GAP  = 35;
+    private static final int SPACING_Y   = 24;
+    private static final int SECTION_GAP = 35;
     private static final int TITLE_HEIGHT = 20;
 
     private final Screen parent;
@@ -31,8 +32,8 @@ public class AntiAfkScreen extends Screen {
     private ButtonWidget doneButton;
     private ButtonWidget globalToggleButton;
 
-    private int[] sectionY    = new int[5];
-    private int[] sectionRows = new int[5];
+    private final int[] sectionY    = new int[8];
+    private final int[] sectionRows = new int[8];
 
     public AntiAfkScreen(Screen parent) {
         super(Text.literal("Anti-AFK Configuration"));
@@ -49,27 +50,24 @@ public class AntiAfkScreen extends Screen {
         int rightCol = centerX + 5;
         int y = 70;
 
-        sectionY[0] = y;
-        sectionRows[0] = 2;
-        addToggleButton(leftCol,  y, "Auto Jump",       "Jumps randomly.",              AntiAfkConfig.autoJumpEnabled,    v -> AntiAfkConfig.autoJumpEnabled = v);
-        addToggleButton(rightCol, y, "Sneak Mode",      "Automatically sneaks.",        AntiAfkConfig.sneak,              v -> AntiAfkConfig.sneak = v);
+        sectionY[0] = y; sectionRows[0] = 2;
+        addToggleButton(leftCol,  y, "Auto Jump",    "Jumps randomly.",          AntiAfkConfig.autoJumpEnabled,    v -> AntiAfkConfig.autoJumpEnabled = v);
+        addToggleButton(rightCol, y, "Sneak Mode",   "Automatically sneaks.",    AntiAfkConfig.sneak,              v -> AntiAfkConfig.sneak = v);
         y += SPACING_Y;
-        addToggleButton(leftCol,  y, "Swing Hand",      "Swings player's hand.",        AntiAfkConfig.shouldSwing,        v -> AntiAfkConfig.shouldSwing = v);
-        addToggleButton(rightCol, y, "Random Pause",    "Randomly pauses actions.",     AntiAfkConfig.randomPauseEnabled, v -> AntiAfkConfig.randomPauseEnabled = v);
+        addToggleButton(leftCol,  y, "Swing Hand",   "Swings player's hand.",    AntiAfkConfig.shouldSwing,        v -> AntiAfkConfig.shouldSwing = v);
+        addToggleButton(rightCol, y, "Random Pause", "Randomly pauses actions.", AntiAfkConfig.randomPauseEnabled, v -> AntiAfkConfig.randomPauseEnabled = v);
         y += SPACING_Y + SECTION_GAP;
 
-        sectionY[1] = y;
-        sectionRows[1] = 2;
+        sectionY[1] = y; sectionRows[1] = 2;
         addToggleButton(leftCol,  y, "Player Movement", "Moves the player.",            AntiAfkConfig.movementEnabled,   v -> AntiAfkConfig.movementEnabled = v);
         addToggleButton(rightCol, y, "Mouse Movement",  "Randomly moves camera.",       AntiAfkConfig.mouseMovement,     v -> AntiAfkConfig.mouseMovement = v);
         y += SPACING_Y;
-        addToggleButton(leftCol,  y, "Spin",            "Rotates the player's camera.", AntiAfkConfig.autoSpinEnabled,   v -> AntiAfkConfig.autoSpinEnabled = v);
+        addToggleButton(leftCol,  y, "Spin",            "Rotates player camera.",       AntiAfkConfig.autoSpinEnabled,   v -> AntiAfkConfig.autoSpinEnabled = v);
         addToggleButton(rightCol, y, "Random Interval", "Varies time between actions.", AntiAfkConfig.useRandomInterval, v -> { AntiAfkConfig.useRandomInterval = v; this.init(); });
         y += SPACING_Y + SECTION_GAP;
 
         int timingRows = AntiAfkConfig.useRandomInterval ? 3 : 2;
-        sectionY[2] = y;
-        sectionRows[2] = timingRows;
+        sectionY[2] = y; sectionRows[2] = timingRows;
         if (AntiAfkConfig.useRandomInterval) {
             addSlider(leftCol,  y, 150, "Min Secs",     AntiAfkConfig.minInterval, 0.1f, 10.0f, v -> AntiAfkConfig.minInterval = v);
             addSlider(rightCol, y, 150, "Max Secs",     AntiAfkConfig.maxInterval, 0.1f, 10.0f, v -> AntiAfkConfig.maxInterval = v);
@@ -78,12 +76,17 @@ public class AntiAfkScreen extends Screen {
             addSlider(leftCol,  y, 310, "Action Delay", AntiAfkConfig.interval,    0.1f, 10.0f, v -> AntiAfkConfig.interval = v);
             y += SPACING_Y;
         }
-        addSlider(leftCol,  y, 150, "Spin Speed",  AntiAfkConfig.spinSpeed,              0.1f, 20.0f, v -> AntiAfkConfig.spinSpeed = v);
-        addSlider(rightCol, y, 150, "Look Range",  AntiAfkConfig.horizontalMultiplier,    0.1f,  5.0f, v -> { AntiAfkConfig.horizontalMultiplier = v; AntiAfkConfig.verticalMultiplier = v; });
+        addSlider(leftCol,  y, 150, "Spin Speed", AntiAfkConfig.spinSpeed,             0.1f, 20.0f, v -> AntiAfkConfig.spinSpeed = v);
+        addSlider(rightCol, y, 150, "Look Range",  AntiAfkConfig.horizontalMultiplier,  0.1f,  5.0f, v -> { AntiAfkConfig.horizontalMultiplier = v; AntiAfkConfig.verticalMultiplier = v; });
         y += SPACING_Y + SECTION_GAP;
 
-        sectionY[3] = y;
-        sectionRows[3] = 2;
+        sectionY[3] = y; sectionRows[3] = 2;
+        addToggleButton(leftCol,  y, "Mouse Jitter", "Adds subtle micro camera shake.", AntiAfkConfig.mouseJitterEnabled, v -> AntiAfkConfig.mouseJitterEnabled = v);
+        y += SPACING_Y;
+        addSlider(leftCol, y, 310, "Jitter Strength", AntiAfkConfig.jitterStrength, 0.1f, 10.0f, v -> AntiAfkConfig.jitterStrength = v);
+        y += SPACING_Y + SECTION_GAP;
+
+        sectionY[4] = y; sectionRows[4] = 2;
         addToggleButton(leftCol,  y, "Auto Eat",       "Eats food when hungry.",            AntiAfkConfig.autoEatEnabled,         v -> AntiAfkConfig.autoEatEnabled = v);
         addToggleButton(rightCol, y, "Random Hotbar",  "Randomly switches hotbar slot.",    AntiAfkConfig.randomHotbarEnabled,    v -> AntiAfkConfig.randomHotbarEnabled = v);
         y += SPACING_Y;
@@ -91,22 +94,69 @@ public class AntiAfkScreen extends Screen {
         addToggleButton(rightCol, y, "Open Inventory", "Randomly opens inventory briefly.", AntiAfkConfig.randomInventoryEnabled, v -> AntiAfkConfig.randomInventoryEnabled = v);
         y += SPACING_Y + SECTION_GAP;
 
-        sectionY[4] = y;
-        sectionRows[4] = 7;
-        addSlider(leftCol,  y, 310, "Eat Below HungerLevel",      AntiAfkConfig.eatFoodLevel,            1.0f,  20.0f, v -> AntiAfkConfig.eatFoodLevel = v);
+        sectionY[5] = y; sectionRows[5] = 4;
+        addToggleButton(leftCol,  y, "Chat Messages",  "Sends random chat messages.", AntiAfkConfig.chatMessagesEnabled,  v -> AntiAfkConfig.chatMessagesEnabled = v);
+        addToggleButton(rightCol, y, "Auto Reconnect", "Reconnects on disconnect.",   AntiAfkConfig.autoReconnectEnabled, v -> AntiAfkConfig.autoReconnectEnabled = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 150, "Hotbar Min Secs",   AntiAfkConfig.hotbarSwitchMinSeconds,  1.0f,  60.0f, v -> AntiAfkConfig.hotbarSwitchMinSeconds = v);
-        addSlider(rightCol, y, 150, "Hotbar Max Secs",   AntiAfkConfig.hotbarSwitchMaxSeconds,  1.0f,  60.0f, v -> AntiAfkConfig.hotbarSwitchMaxSeconds = v);
+
+        TextFieldWidget chatField = new TextFieldWidget(
+                textRenderer, leftCol, y, 310, 20,
+                Text.literal("Messages (semicolon separated)")
+        );
+        chatField.setMaxLength(512);
+        chatField.setText(AntiAfkConfig.chatMessages != null ? AntiAfkConfig.chatMessages : "");
+        chatField.setPlaceholder(Text.literal("§8Hey!;Still here!;AFK farming"));
+        chatField.setChangedListener(val -> AntiAfkConfig.chatMessages = val);
+        scrollableWidgets.add(chatField);
+        addDrawableChild(chatField);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 150, "Offhand Min Secs",  AntiAfkConfig.offhandSwapMinSeconds,   1.0f, 120.0f, v -> AntiAfkConfig.offhandSwapMinSeconds = v);
-        addSlider(rightCol, y, 150, "Offhand Max Secs",  AntiAfkConfig.offhandSwapMaxSeconds,   1.0f, 120.0f, v -> AntiAfkConfig.offhandSwapMaxSeconds = v);
+
+        addSlider(leftCol,  y, 150, "Chat Min Secs", AntiAfkConfig.chatMessageMinSeconds, 10f, 300f, v -> AntiAfkConfig.chatMessageMinSeconds = v);
+        addSlider(rightCol, y, 150, "Chat Max Secs", AntiAfkConfig.chatMessageMaxSeconds, 10f, 300f, v -> AntiAfkConfig.chatMessageMaxSeconds = v);
+        y += SPACING_Y + SECTION_GAP;
+
+        sectionY[6] = y; sectionRows[6] = 3;
+        addToggleButton(leftCol, y, "Auto Disconnect",
+                "Disconnects if a player enters the set radius.",
+                AntiAfkConfig.autoDisconnectEnabled, v -> AntiAfkConfig.autoDisconnectEnabled = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 310, "Offhand Hold Secs", AntiAfkConfig.offhandHoldSeconds,      1.0f,  30.0f, v -> AntiAfkConfig.offhandHoldSeconds = v);
+
+        addSlider(leftCol, y, 310, "Disconnect Radius",
+                AntiAfkConfig.autoDisconnectRadius, 1.0f, 64.0f,
+                v -> AntiAfkConfig.autoDisconnectRadius = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 150, "Inv Min Secs",      AntiAfkConfig.inventoryOpenMinSeconds,  1.0f, 120.0f, v -> AntiAfkConfig.inventoryOpenMinSeconds = v);
-        addSlider(rightCol, y, 150, "Inv Max Secs",      AntiAfkConfig.inventoryOpenMaxSeconds,  1.0f, 120.0f, v -> AntiAfkConfig.inventoryOpenMaxSeconds = v);
+
+        TextFieldWidget ignoreField = new TextFieldWidget(
+                textRenderer, leftCol, y, 310, 20,
+                Text.literal("Ignored players (semicolon separated)")
+        );
+        ignoreField.setMaxLength(512);
+        ignoreField.setText(AntiAfkConfig.autoDisconnectIgnoredPlayers != null
+                ? AntiAfkConfig.autoDisconnectIgnoredPlayers : "");
+        ignoreField.setPlaceholder(Text.literal("§8Steve;Alex;Notch"));
+        ignoreField.setChangedListener(val -> AntiAfkConfig.autoDisconnectIgnoredPlayers = val);
+        scrollableWidgets.add(ignoreField);
+        addDrawableChild(ignoreField);
+        y += SPACING_Y + SECTION_GAP;
+
+        sectionY[7] = y; sectionRows[7] = 8;
+        addSlider(leftCol,  y, 310, "Eat Below Hunger",    AntiAfkConfig.eatFoodLevel,              1.0f,  20.0f, v -> AntiAfkConfig.eatFoodLevel = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 310, "Inv Hold Secs",     AntiAfkConfig.inventoryHoldSeconds,     1.0f,  30.0f, v -> AntiAfkConfig.inventoryHoldSeconds = v);
+        addSlider(leftCol,  y, 150, "Hotbar Min Secs",     AntiAfkConfig.hotbarSwitchMinSeconds,    1.0f,  60.0f, v -> AntiAfkConfig.hotbarSwitchMinSeconds = v);
+        addSlider(rightCol, y, 150, "Hotbar Max Secs",     AntiAfkConfig.hotbarSwitchMaxSeconds,    1.0f,  60.0f, v -> AntiAfkConfig.hotbarSwitchMaxSeconds = v);
+        y += SPACING_Y;
+        addSlider(leftCol,  y, 150, "Offhand Min Secs",    AntiAfkConfig.offhandSwapMinSeconds,     1.0f, 120.0f, v -> AntiAfkConfig.offhandSwapMinSeconds = v);
+        addSlider(rightCol, y, 150, "Offhand Max Secs",    AntiAfkConfig.offhandSwapMaxSeconds,     1.0f, 120.0f, v -> AntiAfkConfig.offhandSwapMaxSeconds = v);
+        y += SPACING_Y;
+        addSlider(leftCol,  y, 310, "Offhand Hold Secs",   AntiAfkConfig.offhandHoldSeconds,        1.0f,  30.0f, v -> AntiAfkConfig.offhandHoldSeconds = v);
+        y += SPACING_Y;
+        addSlider(leftCol,  y, 150, "Inv Min Secs",        AntiAfkConfig.inventoryOpenMinSeconds,   1.0f, 120.0f, v -> AntiAfkConfig.inventoryOpenMinSeconds = v);
+        addSlider(rightCol, y, 150, "Inv Max Secs",        AntiAfkConfig.inventoryOpenMaxSeconds,   1.0f, 120.0f, v -> AntiAfkConfig.inventoryOpenMaxSeconds = v);
+        y += SPACING_Y;
+        addSlider(leftCol,  y, 310, "Inv Hold Secs",       AntiAfkConfig.inventoryHoldSeconds,      1.0f,  30.0f, v -> AntiAfkConfig.inventoryHoldSeconds = v);
+        y += SPACING_Y;
+        addSlider(leftCol,  y, 150, "Reconnect Delay",     AntiAfkConfig.reconnectDelaySeconds,     1.0f,  60.0f, v -> AntiAfkConfig.reconnectDelaySeconds = v);
+        y += SPACING_Y;
 
         contentHeight = y + 40;
         maxScroll = Math.max(0, contentHeight - (height - 90));
@@ -143,7 +193,17 @@ public class AntiAfkScreen extends Screen {
 
         ctx.enableScissor(0, 40, width, height - 40);
 
-        String[] titles = { "Player Actions", "Movement & Behavior", "Advanced Timing", "Inventory & Eating", "Feature Timing" };
+        String[] titles = {
+                "Player Actions",
+                "Movement & Behavior",
+                "Advanced Timing",
+                "Mouse Jitter",
+                "Inventory & Eating",
+                "Chat & Reconnect",
+                "Auto Disconnect",
+                "Feature Timing"
+        };
+
         for (int i = 0; i < sectionY.length; i++) {
             renderSectionGroup(ctx, panelX, sectionY[i] - scrollOffset, panelW, sectionRows[i], titles[i]);
         }
@@ -152,6 +212,7 @@ public class AntiAfkScreen extends Screen {
             widget.visible = (widget.getY() + widget.getHeight() > 40 && widget.getY() < height - 40);
             if (widget.visible) widget.render(ctx, mouseX, mouseY, delta);
         }
+
         ctx.disableScissor();
 
         globalToggleButton.render(ctx, mouseX, mouseY, delta);
@@ -179,8 +240,8 @@ public class AntiAfkScreen extends Screen {
         int trackX      = width - 6;
         int trackY      = 40;
         int trackHeight = height - 80;
-        int thumbHeight = Math.max(20, (int) ((float) trackHeight * (trackHeight / (float) contentHeight)));
-        int thumbY      = trackY + (int) ((trackHeight - thumbHeight) * ((float) scrollOffset / maxScroll));
+        int thumbHeight = Math.max(20, (int)((float) trackHeight * (trackHeight / (float) contentHeight)));
+        int thumbY      = trackY + (int)((trackHeight - thumbHeight) * ((float) scrollOffset / maxScroll));
         ctx.fill(trackX, trackY, width - 2, trackY + trackHeight, 0x40000000);
         ctx.fill(trackX, thumbY, width - 2, thumbY + thumbHeight, 0xFFFFAA00);
     }
@@ -208,10 +269,10 @@ public class AntiAfkScreen extends Screen {
         ctx.fill(x + 5, y - 6, x + w - 5, y - 5, 0x80FFAA00);
     }
 
-    private void drawStyledPanel(DrawContext context, int x, int y, int width, int height) {
-        context.fill(x, y, x + width, y + height, 0x90000000);
-        context.fill(x, y, x + 2, y + height, 0xFFFFAA00);
-        context.fill(x + width - 2, y, x + width, y + height, 0xFFFFAA00);
+    private void drawStyledPanel(DrawContext ctx, int x, int y, int width, int height) {
+        ctx.fill(x, y, x + width, y + height, 0x90000000);
+        ctx.fill(x, y, x + 2, y + height, 0xFFFFAA00);
+        ctx.fill(x + width - 2, y, x + width, y + height, 0xFFFFAA00);
     }
 
     private Text getToggleText(String label, boolean value) {
@@ -227,17 +288,15 @@ public class AntiAfkScreen extends Screen {
     }
 
     public void refreshGlobalToggle() {
-        if (this.globalToggleButton != null) {
-            this.globalToggleButton.setMessage(getGlobalToggleText());
+        if (globalToggleButton != null) {
+            globalToggleButton.setMessage(getGlobalToggleText());
         }
     }
 
     @Override
     public void close() {
-        this.config.saveConfiguration();
-        if (this.client != null) {
-            this.client.setScreen(this.parent);
-        }
+        config.saveConfiguration();
+        if (client != null) client.setScreen(parent);
     }
 
     private static class GenericSlider extends SliderWidget {
@@ -246,23 +305,23 @@ public class AntiAfkScreen extends Screen {
         private final Consumer<Float> updateAction;
 
         public GenericSlider(int x, int y, int w, int h, String label, float cur, float min, float max, Consumer<Float> action) {
-            super(x, y, w, h, Text.empty(), (double) (cur - min) / (max - min));
-            this.label = label;
-            this.min = min;
-            this.max = max;
+            super(x, y, w, h, Text.empty(), (double)(cur - min) / (max - min));
+            this.label        = label;
+            this.min          = min;
+            this.max          = max;
             this.updateAction = action;
             updateMessage();
         }
 
         @Override
         protected void updateMessage() {
-            float val = min + (float) (this.value * (max - min));
-            this.setMessage(Text.literal(label + ": §e" + String.format("%.1f", val)));
+            float val = min + (float)(this.value * (max - min));
+            setMessage(Text.literal(label + ": §e" + String.format("%.1f", val)));
         }
 
         @Override
         protected void applyValue() {
-            float val = min + (float) (this.value * (max - min));
+            float val = min + (float)(this.value * (max - min));
             updateAction.accept(val);
         }
     }

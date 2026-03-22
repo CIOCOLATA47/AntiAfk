@@ -4,6 +4,7 @@
   "package": "me.cioco.antiafk.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
+    "MixinDisconnectedScreen"
   ],
   "injectors": {
     "defaultRequire": 1
