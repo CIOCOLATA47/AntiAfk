@@ -73,7 +73,7 @@ public class AntiAfkScreen extends Screen {
             addSlider(rightCol, y, 150, "Max Secs", AntiAfkConfig.maxInterval, 0.1f, 10.0f, v -> AntiAfkConfig.maxInterval = v);
             y += SPACING_Y;
         } else {
-            addSlider(leftCol,  y, 310, "Action Delay", AntiAfkConfig.interval, 0.1f, 10.0f, v -> AntiAfkConfig.interval = v);
+            addSlider(leftCol,  y, 310, "Action Delay Secs", AntiAfkConfig.interval, 0.1f, 10.0f, v -> AntiAfkConfig.interval = v);
             y += SPACING_Y;
         }
         addSlider(leftCol,  y, 150, "Spin Speed", AntiAfkConfig.spinSpeed,             0.1f, 20.0f, v -> AntiAfkConfig.spinSpeed = v);
@@ -108,8 +108,8 @@ public class AntiAfkScreen extends Screen {
         addDrawableChild(chatField);
         y += SPACING_Y;
 
-        addSlider(leftCol,  y, 150, "Chat Min", AntiAfkConfig.chatMessageMinSeconds, 10f, 300f, v -> AntiAfkConfig.chatMessageMinSeconds = v);
-        addSlider(rightCol, y, 150, "Chat Max", AntiAfkConfig.chatMessageMaxSeconds, 10f, 300f, v -> AntiAfkConfig.chatMessageMaxSeconds = v);
+        addSlider(leftCol,  y, 150, "Chat Min Secs", AntiAfkConfig.chatMessageMinSeconds, 10f, 300f, v -> AntiAfkConfig.chatMessageMinSeconds = v);
+        addSlider(rightCol, y, 150, "Chat Max Secs", AntiAfkConfig.chatMessageMaxSeconds, 10f, 300f, v -> AntiAfkConfig.chatMessageMaxSeconds = v);
         y += SPACING_Y + SECTION_GAP;
 
         sectionY[6] = y; sectionRows[6] = 3;
@@ -130,20 +130,20 @@ public class AntiAfkScreen extends Screen {
         sectionY[7] = y; sectionRows[7] = 8;
         addSlider(leftCol,  y, 310, "Hunger Threshold", AntiAfkConfig.eatFoodLevel,           1.0f,  20.0f, v -> AntiAfkConfig.eatFoodLevel = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 150, "Hotbar Min",       AntiAfkConfig.hotbarSwitchMinSeconds, 1.0f,  60.0f, v -> AntiAfkConfig.hotbarSwitchMinSeconds = v);
-        addSlider(rightCol, y, 150, "Hotbar Max",       AntiAfkConfig.hotbarSwitchMaxSeconds, 1.0f,  60.0f, v -> AntiAfkConfig.hotbarSwitchMaxSeconds = v);
+        addSlider(leftCol,  y, 150, "Hotbar Min Secs",       AntiAfkConfig.hotbarSwitchMinSeconds, 1.0f,  60.0f, v -> AntiAfkConfig.hotbarSwitchMinSeconds = v);
+        addSlider(rightCol, y, 150, "Hotbar Max Secs",       AntiAfkConfig.hotbarSwitchMaxSeconds, 1.0f,  60.0f, v -> AntiAfkConfig.hotbarSwitchMaxSeconds = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 150, "Offhand Min",      AntiAfkConfig.offhandSwapMinSeconds,  1.0f, 120.0f, v -> AntiAfkConfig.offhandSwapMinSeconds = v);
-        addSlider(rightCol, y, 150, "Offhand Max",      AntiAfkConfig.offhandSwapMaxSeconds,  1.0f, 120.0f, v -> AntiAfkConfig.offhandSwapMaxSeconds = v);
+        addSlider(leftCol,  y, 150, "Offhand Min Secs",      AntiAfkConfig.offhandSwapMinSeconds,  1.0f, 120.0f, v -> AntiAfkConfig.offhandSwapMinSeconds = v);
+        addSlider(rightCol, y, 150, "Offhand Max Secs",      AntiAfkConfig.offhandSwapMaxSeconds,  1.0f, 120.0f, v -> AntiAfkConfig.offhandSwapMaxSeconds = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 310, "Offhand Hold",     AntiAfkConfig.offhandHoldSeconds,     1.0f,  30.0f, v -> AntiAfkConfig.offhandHoldSeconds = v);
+        addSlider(leftCol,  y, 310, "Offhand Hold Secs",     AntiAfkConfig.offhandHoldSeconds,     1.0f,  30.0f, v -> AntiAfkConfig.offhandHoldSeconds = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 150, "Inv Min",           AntiAfkConfig.inventoryOpenMinSeconds, 1.0f, 120.0f, v -> AntiAfkConfig.inventoryOpenMinSeconds = v);
-        addSlider(rightCol, y, 150, "Inv Max",           AntiAfkConfig.inventoryOpenMaxSeconds, 1.0f, 120.0f, v -> AntiAfkConfig.inventoryOpenMaxSeconds = v);
+        addSlider(leftCol,  y, 150, "Inv Min Secs",           AntiAfkConfig.inventoryOpenMinSeconds, 1.0f, 120.0f, v -> AntiAfkConfig.inventoryOpenMinSeconds = v);
+        addSlider(rightCol, y, 150, "Inv Max Secs",           AntiAfkConfig.inventoryOpenMaxSeconds, 1.0f, 120.0f, v -> AntiAfkConfig.inventoryOpenMaxSeconds = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 310, "Inv Hold",          AntiAfkConfig.inventoryHoldSeconds,    1.0f,  30.0f, v -> AntiAfkConfig.inventoryHoldSeconds = v);
+        addSlider(leftCol,  y, 310, "Inv Hold Secs",          AntiAfkConfig.inventoryHoldSeconds,    1.0f,  30.0f, v -> AntiAfkConfig.inventoryHoldSeconds = v);
         y += SPACING_Y;
-        addSlider(leftCol,  y, 150, "Reconnect Delay",  AntiAfkConfig.reconnectDelaySeconds,  1.0f,  60.0f, v -> AntiAfkConfig.reconnectDelaySeconds = v);
+        addSlider(leftCol,  y, 150, "Reconnect Delay Secs",  AntiAfkConfig.reconnectDelaySeconds,  1.0f,  60.0f, v -> AntiAfkConfig.reconnectDelaySeconds = v);
         y += SPACING_Y;
 
         contentHeight = y + 40;
