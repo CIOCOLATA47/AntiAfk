@@ -1,16 +1,16 @@
 package me.cioco.antiafk.mixin;
 
 import me.cioco.antiafk.config.AntiAfkConfig;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.DisconnectedScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.DirectionalLayoutWidget;
-import net.minecraft.client.network.ServerAddress;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.layouts.LinearLayout;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,21 +22,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(DisconnectedScreen.class)
 public abstract class MixinDisconnectedScreen extends Screen {
 
-    @Shadow @Final private DirectionalLayoutWidget grid;
+    @Shadow @Final private LinearLayout layout;
 
-    @Unique private ButtonWidget reconnectBtn;
+    @Unique private Button reconnectBtn;
     @Unique private Thread reconnectThread;
-    @Unique private ServerInfo cachedServerInfo;
+    @Unique private ServerData cachedServerData;
 
-    protected MixinDisconnectedScreen(Text title) {
+    protected MixinDisconnectedScreen(Component title) {
         super(title);
     }
 
     @Inject(method = "init", at = @At("HEAD"))
     private void captureServerInfo(CallbackInfo ci) {
-        ServerInfo current = MinecraftClient.getInstance().getCurrentServerEntry();
+        ServerData current = Minecraft.getInstance().getCurrentServer();
         if (current != null) {
-            this.cachedServerInfo = current;
+            this.cachedServerData = current;
         }
     }
 
@@ -44,19 +44,19 @@ public abstract class MixinDisconnectedScreen extends Screen {
             method = "init",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/widget/DirectionalLayoutWidget;refreshPositions()V",
+                    target = "Lnet/minecraft/client/gui/layouts/LinearLayout;arrangeElements()V",
                     shift = At.Shift.BEFORE
             )
     )
     private void addReconnectButton(CallbackInfo ci) {
-        if (!AntiAfkConfig.autoReconnectEnabled || cachedServerInfo == null) return;
+        if (!AntiAfkConfig.autoReconnectEnabled || cachedServerData == null) return;
 
-        reconnectBtn = ButtonWidget.builder(
-                Text.literal("Reconnect Now"),
+        reconnectBtn = Button.builder(
+                Component.literal("Reconnect Now"),
                 btn -> tryReconnect()
         ).build();
 
-        grid.add(reconnectBtn);
+        layout.addChild(reconnectBtn);
         startReconnectThread();
     }
 
@@ -74,16 +74,16 @@ public abstract class MixinDisconnectedScreen extends Screen {
                     if (Thread.interrupted()) return;
 
                     final String timeLeft = String.valueOf(i);
-                    MinecraftClient.getInstance().execute(() -> {
+                    Minecraft.getInstance().execute(() -> {
                         if (reconnectBtn != null) {
-                            reconnectBtn.setMessage(Text.literal("Reconnecting in " + timeLeft + "s..."));
+                            reconnectBtn.setMessage(Component.literal("Reconnecting in " + timeLeft + "s..."));
                         }
                     });
 
                     Thread.sleep(1000L);
                 }
 
-                MinecraftClient.getInstance().execute(this::tryReconnect);
+                Minecraft.getInstance().execute(this::tryReconnect);
 
             } catch (InterruptedException ignored) {
             }
@@ -96,19 +96,19 @@ public abstract class MixinDisconnectedScreen extends Screen {
     @Unique
     private void tryReconnect() {
         if (reconnectThread != null) reconnectThread.interrupt();
-        if (cachedServerInfo == null) return;
+        if (cachedServerData == null) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ServerAddress address = ServerAddress.parse(cachedServerInfo.address);
+        Minecraft mc = Minecraft.getInstance();
+        ServerAddress address = ServerAddress.parseString(cachedServerData.ip);
 
-        ConnectScreen.connect(new TitleScreen(), mc, address, cachedServerInfo, false, null);
+        ConnectScreen.startConnecting(new TitleScreen(), mc, address, cachedServerData, false, null);
     }
 
     @Override
-    public void removed() {
+    public void onClose() {
         if (reconnectThread != null) {
             reconnectThread.interrupt();
         }
-        super.removed();
+        super.onClose();
     }
 }

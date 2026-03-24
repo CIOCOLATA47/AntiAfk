@@ -2,19 +2,21 @@ package me.cioco.antiafk.mixin;
 
 import me.cioco.antiafk.Main;
 import me.cioco.antiafk.config.AntiAfkConfig;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -26,7 +28,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Mixin(ClientPlayerEntity.class)
+@Mixin(LocalPlayer.class)
 public abstract class MixinClientPlayerEntity {
 
     @Unique private static final Random RANDOM = new Random();
@@ -66,8 +68,8 @@ public abstract class MixinClientPlayerEntity {
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = (ClientPlayerEntity) (Object) this;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = (LocalPlayer) (Object) this;
 
         if (!Main.toggled) {
             if (wasActive) {
@@ -138,8 +140,8 @@ public abstract class MixinClientPlayerEntity {
     }
 
     @Unique
-    private void handleAutoDisconnect(MinecraftClient mc, ClientPlayerEntity self) {
-        if (mc.world == null || mc.player == null) return;
+    private void handleAutoDisconnect(Minecraft mc, LocalPlayer self) {
+        if (mc.level == null || mc.player == null) return;
 
         String ignoredRaw = AntiAfkConfig.autoDisconnectIgnoredPlayers;
         Set<String> ignored = (ignoredRaw != null && !ignoredRaw.isBlank())
@@ -152,16 +154,16 @@ public abstract class MixinClientPlayerEntity {
 
         double radiusSq = AntiAfkConfig.autoDisconnectRadius * AntiAfkConfig.autoDisconnectRadius;
 
-        boolean threat = mc.world.getPlayers().stream()
+        boolean threat = mc.level.players().stream()
                 .filter(p -> p != self)
                 .filter(p -> !ignored.contains(p.getName().getString().toLowerCase()))
-                .anyMatch(p -> p.squaredDistanceTo(self) <= radiusSq);
+                .anyMatch(p -> p.distanceToSqr(self) <= radiusSq);
 
         if (threat) {
             mc.execute(() -> {
-                if (mc.getNetworkHandler() != null) {
-                    mc.getNetworkHandler().getConnection().disconnect(
-                            net.minecraft.text.Text.literal("[AntiAFK] Player nearby — disconnected")
+                if (mc.getConnection() != null) {
+                    mc.getConnection().getConnection().disconnect(
+                            Component.literal("[AntiAFK] Player nearby — disconnected")
                     );
                 }
             });
@@ -169,14 +171,14 @@ public abstract class MixinClientPlayerEntity {
     }
 
     @Unique
-    private void handleAutoEat(MinecraftClient mc, ClientPlayerEntity player) {
+    private void handleAutoEat(Minecraft mc, LocalPlayer player) {
         if (mc.options == null) return;
         if (isEating) {
             eatTicksRemaining--;
             if (eatTicksRemaining <= 0) stopEating(mc);
             return;
         }
-        int foodLevel = player.getHungerManager().getFoodLevel();
+        int foodLevel = player.getFoodData().getFoodLevel();
         if (foodLevel <= (int) AntiAfkConfig.eatFoodLevel) {
             int foodSlot = findFoodSlot(player);
             if (foodSlot != -1) startEating(mc, foodSlot);
@@ -184,43 +186,42 @@ public abstract class MixinClientPlayerEntity {
     }
 
     @Unique
-    private int findFoodSlot(PlayerEntity player) {
+    private int findFoodSlot(Player player) {
         for (int i = 0; i < 9; i++) {
-            ItemStack stack = player.getInventory().getStack(i);
-            if (!stack.isEmpty() && stack.getComponents().contains(DataComponentTypes.FOOD)) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (!stack.isEmpty() && stack.has(DataComponents.FOOD)) {
                 return i;
             }
         }
         return -1;
     }
 
-    @Unique
-    private void startEating(MinecraftClient mc, int slot) {
+    private void startEating(Minecraft mc, int slot) {
         lastSlot = mc.player.getInventory().getSelectedSlot();
-        mc.player.getInventory().setSelectedSlot(slot);
-        mc.options.useKey.setPressed(true);
+        ((InventoryAccessor) mc.player.getInventory()).setSelected(slot);
+        mc.options.keyUse.setDown(true);
         isEating = true;
         eatTicksRemaining = 40;
     }
 
     @Unique
-    private void stopEating(MinecraftClient mc) {
-        if (mc.options != null) mc.options.useKey.setPressed(false);
-        if (mc.player != null && lastSlot != -1) mc.player.getInventory().setSelectedSlot(lastSlot);
+    private void stopEating(Minecraft mc) {
+        if (mc.options != null) mc.options.keyUse.setDown(false);
+        if (mc.player != null && lastSlot != -1) ((InventoryAccessor) mc.player.getInventory()).setSelected(lastSlot);
         isEating = false;
         lastSlot = -1;
         eatTicksRemaining = 0;
     }
 
     @Unique
-    private void handleRandomHotbarSwitch(MinecraftClient mc, ClientPlayerEntity player) {
-        if (mc.currentScreen != null || isEating) return;
+    private void handleRandomHotbarSwitch(Minecraft mc, LocalPlayer player) {
+        if (mc.screen != null || isEating) return;
         if (activeMovementTicks >= nextHotbarSwitchTick) {
             int current = player.getInventory().getSelectedSlot();
             int newSlot;
             do { newSlot = RANDOM.nextInt(9); } while (newSlot == current);
-            player.getInventory().setSelectedSlot(newSlot);
-            mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(newSlot));
+            ((InventoryAccessor) mc.player.getInventory()).setSelected(newSlot);
+            mc.getConnection().send(new ServerboundSetCarriedItemPacket(newSlot));
             int minTicks = (int)(AntiAfkConfig.hotbarSwitchMinSeconds * 20f);
             int maxTicks = (int)(AntiAfkConfig.hotbarSwitchMaxSeconds * 20f);
             nextHotbarSwitchTick = activeMovementTicks + minTicks + RANDOM.nextInt(Math.max(1, maxTicks - minTicks));
@@ -228,8 +229,8 @@ public abstract class MixinClientPlayerEntity {
     }
 
     @Unique
-    private void handleRandomOffhandSwap(MinecraftClient mc) {
-        if (mc.currentScreen != null || isEating) return;
+    private void handleRandomOffhandSwap(Minecraft mc) {
+        if (mc.screen != null || isEating) return;
         if (offhandSwapped && activeMovementTicks >= offhandSwapBackTick) {
             doSwap(mc);
             offhandSwapped = false;
@@ -247,27 +248,27 @@ public abstract class MixinClientPlayerEntity {
     }
 
     @Unique
-    private void doSwap(MinecraftClient mc) {
-        mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(
-                PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND,
-                BlockPos.ORIGIN,
+    private void doSwap(Minecraft mc) {
+        mc.getConnection().send(new ServerboundPlayerActionPacket(
+                ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND,
+                BlockPos.ZERO,
                 Direction.DOWN
         ));
-        ItemStack main = mc.player.getMainHandStack().copy();
-        ItemStack off  = mc.player.getOffHandStack().copy();
-        mc.player.getInventory().setStack(mc.player.getInventory().getSelectedSlot(), off);
-        mc.player.getInventory().setStack(40, main);
+        ItemStack main = mc.player.getMainHandItem().copy();
+        ItemStack off  = mc.player.getOffhandItem().copy();
+        mc.player.getInventory().setItem(mc.player.getInventory().getSelectedSlot(), off);
+        mc.player.getInventory().setItem(40, main);
     }
 
     @Unique
-    private void handleRandomInventoryOpen(MinecraftClient mc) {
+    private void handleRandomInventoryOpen(Minecraft mc) {
         if (isEating) return;
         if (inventoryOpenTicksRemaining > 0) {
             inventoryOpenTicksRemaining--;
             if (inventoryOpenTicksRemaining == 0) mc.setScreen(null);
             return;
         }
-        if (mc.currentScreen != null) return;
+        if (mc.screen != null) return;
         if (activeMovementTicks >= nextInventoryOpenTick) {
             mc.setScreen(new InventoryScreen(mc.player));
             int holdTicks = (int)(AntiAfkConfig.inventoryHoldSeconds * 20f);
@@ -279,70 +280,70 @@ public abstract class MixinClientPlayerEntity {
     }
 
     @Unique
-    private void forceStopAll(MinecraftClient mc) {
+    private void forceStopAll(Minecraft mc) {
         if (mc.options == null) return;
-        setKeyState(mc.options.forwardKey, false);
-        setKeyState(mc.options.backKey,    false);
-        setKeyState(mc.options.leftKey,    false);
-        setKeyState(mc.options.rightKey,   false);
-        if (AntiAfkConfig.sneak) setKeyState(mc.options.sneakKey, false);
+        setKeyState(mc.options.keyUp,    false);
+        setKeyState(mc.options.keyDown,  false);
+        setKeyState(mc.options.keyLeft,  false);
+        setKeyState(mc.options.keyRight, false);
+        if (AntiAfkConfig.sneak) setKeyState(mc.options.keyShift, false);
         visualYawVelocity = 0;
     }
 
     @Unique
-    private void handleUltraSmoothSpin(ClientPlayerEntity player) {
+    private void handleUltraSmoothSpin(LocalPlayer player) {
         if (!AntiAfkConfig.autoSpinEnabled) { visualYawVelocity = 0; return; }
-        visualYawVelocity = MathHelper.lerp(0.02f, visualYawVelocity, AntiAfkConfig.spinSpeed);
-        player.setYaw(player.getYaw() + visualYawVelocity);
+        visualYawVelocity = Mth.lerp(0.02f, visualYawVelocity, AntiAfkConfig.spinSpeed);
+        player.setYRot(player.getYRot() + visualYawVelocity);
         float verticalWave = (float) Math.sin(activeMovementTicks * 0.03f) * 20.0f;
-        player.setPitch(MathHelper.lerp(0.05f, player.getPitch(), verticalWave));
+        player.setXRot(Mth.lerp(0.05f, player.getXRot(), verticalWave));
     }
 
     @Unique
-    private void handleSmoothMovement(MinecraftClient mc, ClientPlayerEntity player) {
+    private void handleSmoothMovement(Minecraft mc, LocalPlayer player) {
         if (mc.options == null || !AntiAfkConfig.movementEnabled) return;
-        if (mc.currentScreen != null) { forceStopAll(mc); return; }
+        if (mc.screen != null) { forceStopAll(mc); return; }
         int walkTicks  = 40;
         int pauseTicks = 10;
         int phaseTotal = walkTicks + pauseTicks;
         int tickInCycle  = activeMovementTicks % (phaseTotal * 4);
         int currentPhase = tickInCycle / phaseTotal;
         boolean isWalking = (tickInCycle % phaseTotal) < walkTicks;
-        setKeyState(mc.options.forwardKey, isWalking && currentPhase == 0);
-        setKeyState(mc.options.rightKey,   isWalking && currentPhase == 1);
-        setKeyState(mc.options.backKey,    isWalking && currentPhase == 2);
-        setKeyState(mc.options.leftKey,    isWalking && currentPhase == 3);
+        setKeyState(mc.options.keyUp,    isWalking && currentPhase == 0);
+        setKeyState(mc.options.keyRight, isWalking && currentPhase == 1);
+        setKeyState(mc.options.keyDown,  isWalking && currentPhase == 2);
+        setKeyState(mc.options.keyLeft,  isWalking && currentPhase == 3);
     }
 
     @Unique
-    private void executeTimedActions(MinecraftClient mc, ClientPlayerEntity player) {
-        if (AntiAfkConfig.autoJumpEnabled && player.isOnGround()) player.jump();
-        if (AntiAfkConfig.shouldSwing) player.swingHand(Hand.MAIN_HAND);
+    private void executeTimedActions(Minecraft mc, LocalPlayer player) {
+        if (AntiAfkConfig.autoJumpEnabled && player.onGround()) player.jumpFromGround();
+        if (AntiAfkConfig.shouldSwing) player.swing(InteractionHand.MAIN_HAND);
         if (AntiAfkConfig.sneak && mc.options != null) {
-            setKeyState(mc.options.sneakKey, !mc.options.sneakKey.isPressed());
+            setKeyState(mc.options.keyShift, !mc.options.keyShift.isDown());
         }
     }
 
     @Unique
-    private void handleMouseMovement(ClientPlayerEntity player) {
+    private void handleMouseMovement(LocalPlayer player) {
         if (!AntiAfkConfig.mouseMovement) { isAnchored = false; return; }
         if (!isAnchored) {
-            anchorYaw   = player.getYaw();
-            anchorPitch = player.getPitch();
+            anchorYaw   = player.getYRot();
+            anchorPitch = player.getXRot();
             targetYaw   = anchorYaw;
             targetPitch = anchorPitch;
             isAnchored  = true;
         }
         if (activeMovementTicks % 50 == 0) {
             targetYaw   = anchorYaw + (RANDOM.nextFloat() - 0.5f) * 60f * AntiAfkConfig.horizontalMultiplier;
-            targetPitch = MathHelper.clamp(anchorPitch + (RANDOM.nextFloat() - 0.5f) * 30f * AntiAfkConfig.verticalMultiplier, -90f, 90f);
+            targetPitch = Mth.clamp(anchorPitch + (RANDOM.nextFloat() - 0.5f) * 30f * AntiAfkConfig.verticalMultiplier, -90f, 90f);
         }
-        player.setYaw(MathHelper.lerpAngleDegrees(0.03f, player.getYaw(), targetYaw));
-        player.setPitch(MathHelper.lerp(0.03f, player.getPitch(), targetPitch));
+        player.setYRot(Mth.rotLerp(0.03f, player.getYRot(), targetYaw));
+        player.setXRot(Mth.lerp(0.03f, player.getXRot(), targetPitch));
     }
 
     @Unique
-    private void handleMouseJitter(ClientPlayerEntity player) {
+    private void handleMouseJitter(LocalPlayer player) {
         if (!AntiAfkConfig.mouseJitterEnabled) return;
         if (activeMovementTicks >= nextJitterTick) {
             float range = AntiAfkConfig.jitterStrength;
@@ -350,14 +351,14 @@ public abstract class MixinClientPlayerEntity {
             jitterPitch = (RANDOM.nextFloat() - 0.5f) * range * 0.5f;
             nextJitterTick = activeMovementTicks + 2 + RANDOM.nextInt(4);
         }
-        player.setYaw(player.getYaw() + jitterYaw);
-        player.setPitch(MathHelper.clamp(player.getPitch() + jitterPitch, -90f, 90f));
+        player.setYRot(player.getYRot() + jitterYaw);
+        player.setXRot(Mth.clamp(player.getXRot() + jitterPitch, -90f, 90f));
     }
 
     @Unique
-    private void handleChatMessages(MinecraftClient mc) {
+    private void handleChatMessages(Minecraft mc) {
         if (!AntiAfkConfig.chatMessagesEnabled) return;
-        if (mc.player == null || mc.getNetworkHandler() == null) return;
+        if (mc.player == null || mc.getConnection() == null) return;
         if (activeMovementTicks >= nextChatMessageTick) {
             String raw = AntiAfkConfig.chatMessages;
             if (raw != null && !raw.isBlank()) {
@@ -365,7 +366,7 @@ public abstract class MixinClientPlayerEntity {
                 if (messages.length > 0) {
                     String msg = messages[RANDOM.nextInt(messages.length)].trim();
                     if (!msg.isEmpty()) {
-                        mc.player.networkHandler.sendChatMessage(msg);
+                        mc.getConnection().sendChat(msg);
                     }
                 }
             }
@@ -384,7 +385,7 @@ public abstract class MixinClientPlayerEntity {
     }
 
     @Unique
-    private void setKeyState(KeyBinding key, boolean pressed) {
-        key.setPressed(pressed);
+    private void setKeyState(KeyMapping key, boolean pressed) {
+        key.setDown(pressed);
     }
 }
