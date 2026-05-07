@@ -156,6 +156,8 @@ public class AntiAfkScreen extends Screen {
             b.setMessage(getGlobalToggleText());
         }).bounds(centerX - 100, height - 60, 200, 20).build();
 
+        addRenderableWidget(globalToggleButton);
+
         doneButton = Button.builder(
                 Component.literal("SAVE & EXIT").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
                 b -> this.onClose()).bounds(centerX - 100, height - 30, 200, 20).build();

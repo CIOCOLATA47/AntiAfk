@@ -196,9 +196,13 @@ public abstract class MixinClientPlayerEntity {
         return -1;
     }
 
+    @Unique
     private void startEating(Minecraft mc, int slot) {
+        if (mc.player == null || mc.getConnection() == null || mc.gameMode == null) return;
         lastSlot = mc.player.getInventory().getSelectedSlot();
         ((InventoryAccessor) mc.player.getInventory()).setSelected(slot);
+        mc.getConnection().send(new ServerboundSetCarriedItemPacket(slot));
+        mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
         mc.options.keyUse.setDown(true);
         isEating = true;
         eatTicksRemaining = 40;
@@ -207,10 +211,14 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private void stopEating(Minecraft mc) {
         if (mc.options != null) mc.options.keyUse.setDown(false);
-        if (mc.player != null && lastSlot != -1) ((InventoryAccessor) mc.player.getInventory()).setSelected(lastSlot);
+        if (mc.player != null && mc.getConnection() != null && lastSlot != -1) {
+            ((InventoryAccessor) mc.player.getInventory()).setSelected(lastSlot);
+            mc.getConnection().send(new ServerboundSetCarriedItemPacket(lastSlot));
+            mc.getConnection().send(new ServerboundPlayerActionPacket(ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM, BlockPos.ZERO, Direction.DOWN
+            ));
+        }
         isEating = false;
         lastSlot = -1;
-        eatTicksRemaining = 0;
     }
 
     @Unique
