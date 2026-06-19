@@ -133,7 +133,7 @@ public abstract class MixinClientPlayerEntity {
             handleRandomInventoryOpen(mc);
         } else if (inventoryOpenTicksRemaining > 0) {
             inventoryOpenTicksRemaining = 0;
-            mc.setScreen(null);
+            mc.setScreenAndShow(null);
         }
 
         handleChatMessages(mc);
@@ -223,7 +223,7 @@ public abstract class MixinClientPlayerEntity {
 
     @Unique
     private void handleRandomHotbarSwitch(Minecraft mc, LocalPlayer player) {
-        if (mc.screen != null || isEating) return;
+        if (mc.gui.screen() != null || isEating) return;
         if (activeMovementTicks >= nextHotbarSwitchTick) {
             int current = player.getInventory().getSelectedSlot();
             int newSlot;
@@ -238,7 +238,7 @@ public abstract class MixinClientPlayerEntity {
 
     @Unique
     private void handleRandomOffhandSwap(Minecraft mc) {
-        if (mc.screen != null || isEating) return;
+        if (mc.gui.screen() != null || isEating) return;
         if (offhandSwapped && activeMovementTicks >= offhandSwapBackTick) {
             doSwap(mc);
             offhandSwapped = false;
@@ -273,12 +273,12 @@ public abstract class MixinClientPlayerEntity {
         if (isEating) return;
         if (inventoryOpenTicksRemaining > 0) {
             inventoryOpenTicksRemaining--;
-            if (inventoryOpenTicksRemaining == 0) mc.setScreen(null);
+            if (inventoryOpenTicksRemaining == 0) mc.setScreenAndShow(null);
             return;
         }
-        if (mc.screen != null) return;
+        if (mc.gui.screen() != null) return;
         if (activeMovementTicks >= nextInventoryOpenTick) {
-            mc.setScreen(new InventoryScreen(mc.player));
+            mc.setScreenAndShow(new InventoryScreen(mc.player));
             int holdTicks = (int)(AntiAfkConfig.inventoryHoldSeconds * 20f);
             inventoryOpenTicksRemaining = Math.max(1, holdTicks);
             int minTicks = (int)(AntiAfkConfig.inventoryOpenMinSeconds * 20f);
@@ -310,7 +310,7 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private void handleSmoothMovement(Minecraft mc, LocalPlayer player) {
         if (mc.options == null || !AntiAfkConfig.movementEnabled) return;
-        if (mc.screen != null) { forceStopAll(mc); return; }
+        if (mc.gui.screen() != null) { forceStopAll(mc); return; }
         int walkTicks  = 40;
         int pauseTicks = 10;
         int phaseTotal = walkTicks + pauseTicks;

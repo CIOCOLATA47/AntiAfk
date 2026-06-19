@@ -45,7 +45,7 @@ public class Main implements ModInitializer {
             if (toggleKeyBinding.consumeClick()) {
                 toggled = !toggled;
 
-                if (client.screen instanceof AntiAfkScreen screen) {
+                if (client.gui.screen() instanceof AntiAfkScreen screen) {
                     screen.refreshGlobalToggle();
                 }
 
@@ -57,7 +57,7 @@ public class Main implements ModInitializer {
             }
 
             if (guiKeyBinding.consumeClick()) {
-                client.setScreen(new AntiAfkScreen(client.screen));
+                client.setScreenAndShow(new AntiAfkScreen(client.gui.screen()));
             }
         });
     }
