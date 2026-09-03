@@ -66,6 +66,10 @@ public class AntiAfkConfig {
     public static float autoDisconnectRadius = 10.0f;
     public static String autoDisconnectIgnoredPlayers = "";
 
+    public static boolean autoLogoutEnabled = false;
+    public static float autoLogoutMinutes = 30.0f;
+    public static boolean showAfkTimer = true;
+
     public void saveConfiguration() {
         try {
             Path configPath = getConfigPath();
@@ -80,6 +84,9 @@ public class AntiAfkConfig {
                 props.setProperty("shouldSwing", String.valueOf(shouldSwing));
                 props.setProperty("movementEnabled", String.valueOf(movementEnabled));
                 props.setProperty("randomPauseEnabled", String.valueOf(randomPauseEnabled));
+                props.setProperty("autoLogoutEnabled", String.valueOf(autoLogoutEnabled));
+                props.setProperty("autoLogoutMinutes", String.valueOf(autoLogoutMinutes));
+                props.setProperty("showAfkTimer", String.valueOf(showAfkTimer));
                 props.setProperty("autoEatEnabled", String.valueOf(autoEatEnabled));
                 props.setProperty("randomHotbarEnabled", String.valueOf(randomHotbarEnabled));
                 props.setProperty("offhandSwapEnabled", String.valueOf(offhandSwapEnabled));
@@ -142,6 +149,9 @@ public class AntiAfkConfig {
             maxInterval            = Float.parseFloat(props.getProperty("maxInterval", "7.0"));
             useRandomInterval      = Boolean.parseBoolean(props.getProperty("useRandomInterval", "false"));
             horizontalMultiplier   = Float.parseFloat(props.getProperty("horizontalMultiplier", "2.0"));
+            autoLogoutEnabled = Boolean.parseBoolean(props.getProperty("autoLogoutEnabled", "false"));
+            autoLogoutMinutes = Float.parseFloat(props.getProperty("autoLogoutMinutes", "30.0"));
+            showAfkTimer = Boolean.parseBoolean(props.getProperty("showAfkTimer", "true"));
             verticalMultiplier     = Float.parseFloat(props.getProperty("verticalMultiplier", "1.5"));
             spinSpeed              = Float.parseFloat(props.getProperty("spinSpeed", "5.0"));
             eatFoodLevel           = Float.parseFloat(props.getProperty("eatFoodLevel", "16.0"));

@@ -3,7 +3,6 @@ package me.cioco.antiafk.gui;
 import me.cioco.antiafk.Main;
 import me.cioco.antiafk.config.AntiAfkConfig;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -33,8 +32,8 @@ public class AntiAfkScreen extends Screen {
     private Button doneButton;
     private Button globalToggleButton;
 
-    private final int[] sectionY    = new int[8];
-    private final int[] sectionRows = new int[8];
+    private final int[] sectionY    = new int[9];
+    private final int[] sectionRows = new int[9];
 
     public AntiAfkScreen(Screen parent) {
         super(Component.literal("Anti-AFK Configuration"));
@@ -145,7 +144,18 @@ public class AntiAfkScreen extends Screen {
         addSlider(leftCol,  y, 310, "Inv Hold Secs",         AntiAfkConfig.inventoryHoldSeconds,    1.0f,  30.0f, v -> AntiAfkConfig.inventoryHoldSeconds = v);
         y += SPACING_Y;
         addSlider(leftCol,  y, 150, "Reconnect Delay Secs",  AntiAfkConfig.reconnectDelaySeconds,   1.0f,  60.0f, v -> AntiAfkConfig.reconnectDelaySeconds = v);
+        y += SPACING_Y + SECTION_GAP;
+
+        sectionY[8] = y; sectionRows[8] = 3;
+        addToggleButton(leftCol, y, "Auto Logout", "Automatically disconnect after AFK time limit.",
+                AntiAfkConfig.autoLogoutEnabled, v -> AntiAfkConfig.autoLogoutEnabled = v);
         y += SPACING_Y;
+        addSlider(leftCol, y, 310, "Logout After (Minutes)", AntiAfkConfig.autoLogoutMinutes,
+                5.0f, 120.0f, v -> AntiAfkConfig.autoLogoutMinutes = v);
+        y += SPACING_Y;
+        addToggleButton(leftCol, y, "Show AFK Timer", "Display AFK duration on screen.",
+                AntiAfkConfig.showAfkTimer, v -> AntiAfkConfig.showAfkTimer = v);
+        y += SPACING_Y + SECTION_GAP;
 
         contentHeight = y + 40;
         maxScroll = Math.max(0, contentHeight - (height - 90));
@@ -177,15 +187,19 @@ public class AntiAfkScreen extends Screen {
         int panelX = cx - (panelW / 2);
 
         ctx.centeredText(font, Component.literal("Anti-AFK Settings").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD, ChatFormatting.UNDERLINE), cx, 15, 0xFFFFFFFF);
-        ctx.enableScissor(0, 40, width, height - 70);
 
-        String[] titles = {"Player Actions", "Movement & Behavior", "Advanced Timing", "Mouse Jitter", "Inventory & Eating", "Chat & Reconnect", "Auto Disconnect", "Feature Timing"};
+        drawAfkTimer(ctx, panelX, 42);
+
+        ctx.enableScissor(0, 60, width, height - 70);
+
+        String[] titles = {"Player Actions", "Movement & Behavior", "Advanced Timing", "Mouse Jitter",
+                "Inventory & Eating", "Chat & Reconnect", "Auto Disconnect", "Feature Timing", "Auto-Logout"};
         for (int i = 0; i < sectionY.length; i++) {
             renderSectionGroup(ctx, panelX, sectionY[i] - scrollOffset, panelW, sectionRows[i], titles[i]);
         }
 
         for (AbstractWidget widget : scrollableWidgets) {
-            if (widget.getY() + widget.getHeight() > 40 && widget.getY() < height - 70) {
+            if (widget.getY() + widget.getHeight() > 60 && widget.getY() < height - 70) {
                 widget.visible = true;
                 widget.extractRenderState(ctx, mouseX, mouseY, delta);
             } else {
@@ -199,6 +213,36 @@ public class AntiAfkScreen extends Screen {
         doneButton.extractRenderState(ctx, mouseX, mouseY, delta);
 
         drawScrollBar(ctx);
+    }
+
+    private void drawAfkTimer(GuiGraphicsExtractor ctx, int x, int y) {
+        String timeText;
+        if (Main.toggled) {
+            String time = Main.formatTime(Main.afkElapsedSeconds);
+            timeText = "§7AFK Time: §e" + time;
+
+            if (AntiAfkConfig.autoLogoutEnabled) {
+                float maxSeconds = AntiAfkConfig.autoLogoutMinutes * 60;
+                float percentage = Math.min(100, (Main.afkElapsedSeconds / maxSeconds) * 100f);
+                String color = percentage < 50 ? "§a" : percentage < 80 ? "§e" : "§c";
+                String progress = "";
+                if (percentage < 50) progress = "§a●";
+                else if (percentage < 80) progress = "§e●";
+                else progress = "§c●";
+                timeText += " §7| " + progress + " §7" + String.format("%.0f%%", percentage);
+
+                float remaining = (maxSeconds - Main.afkElapsedSeconds) / 60f;
+                if (remaining > 0 && remaining < 10 && Main.afkElapsedSeconds > 0) {
+                    timeText += " §7(§c" + String.format("%.1f", remaining) + "m§7)";
+                }
+            }
+        } else {
+            timeText = "§7AFK: §cInactive";
+        }
+
+        ctx.text(font, timeText, x + 5, y, 0xFFFFFFFF);
+
+        ctx.fill(x + 5, y + 12, x + 5 + font.width(timeText), y + 13, 0x40FFAA00);
     }
 
     @Override
@@ -218,8 +262,8 @@ public class AntiAfkScreen extends Screen {
     private void drawScrollBar(GuiGraphicsExtractor ctx) {
         if (maxScroll <= 0) return;
         int trackX = width - 6;
-        int trackY = 40;
-        int trackHeight = height - 110;
+        int trackY = 60;
+        int trackHeight = height - 130;
         int thumbHeight = Math.max(20, (int) ((float) trackHeight * (trackHeight / (float) contentHeight)));
         int thumbY = trackY + (int) ((trackHeight - thumbHeight) * ((float) scrollOffset / maxScroll));
         ctx.fill(trackX, trackY, width - 2, trackY + trackHeight, 0x40000000);
