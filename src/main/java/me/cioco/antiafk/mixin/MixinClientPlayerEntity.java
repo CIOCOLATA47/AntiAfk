@@ -17,6 +17,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.SwingAnimation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -326,7 +327,8 @@ public abstract class MixinClientPlayerEntity {
     @Unique
     private void executeTimedActions(Minecraft mc, LocalPlayer player) {
         if (AntiAfkConfig.autoJumpEnabled && player.onGround()) player.jumpFromGround();
-        if (AntiAfkConfig.shouldSwing) player.swing(InteractionHand.MAIN_HAND);
+        if (AntiAfkConfig.shouldSwing) {player.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
+        }
         if (AntiAfkConfig.sneak && mc.options != null) {
             setKeyState(mc.options.keyShift, !mc.options.keyShift.isDown());
         }

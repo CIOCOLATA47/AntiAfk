@@ -2,20 +2,25 @@ package me.cioco.antiafk;
 
 import me.cioco.antiafk.config.AntiAfkConfig;
 import me.cioco.antiafk.gui.AntiAfkScreen;
+import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.minecraft.client.KeyMapping;
-import com.mojang.blaze3d.platform.InputConstants;
-import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
+
+import com.mojang.blaze3d.platform.InputConstants;
 
 public class Main implements ModInitializer {
+
     public static final AntiAfkConfig config = new AntiAfkConfig();
 
-    public static final KeyMapping.Category CATEGORY_ANTIAFK = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("antiafk", "key_category"));
+    public static final KeyMapping.Category CATEGORY_ANTIAFK =
+            KeyMapping.Category.register(
+                    Identifier.fromNamespaceAndPath("antiafk", "key_category")
+            );
 
     public static KeyMapping toggleKeyBinding;
     public static KeyMapping guiKeyBinding;
@@ -28,23 +33,25 @@ public class Main implements ModInitializer {
 
     @Override
     public void onInitialize() {
+
         config.loadConfiguration();
 
         toggleKeyBinding = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.antiafk.toggle",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.UNKNOWN.getValue(),
                 CATEGORY_ANTIAFK
         ));
 
         guiKeyBinding = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.antiafk.open_gui",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.UNKNOWN.getValue(),
                 CATEGORY_ANTIAFK
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+
             if (client.player == null) return;
 
             if (toggled) {
@@ -53,10 +60,11 @@ public class Main implements ModInitializer {
                     wasToggled = true;
                     warningSent = false;
                 }
+
                 afkElapsedSeconds = (System.currentTimeMillis() - afkStartTime) / 1000;
 
                 if (AntiAfkConfig.autoLogoutEnabled) {
-                    float maxSeconds = AntiAfkConfig.autoLogoutMinutes * 60;
+                    float maxSeconds = AntiAfkConfig.autoLogoutMinutes * 60f;
 
                     if (afkElapsedSeconds >= maxSeconds) {
                         client.player.sendSystemMessage(
@@ -65,7 +73,8 @@ public class Main implements ModInitializer {
                         );
                         if (client.getConnection() != null) {
                             client.getConnection().getConnection().disconnect(
-                                    Component.literal("Auto-logout after " + formatTime(afkElapsedSeconds) + " AFK")
+                                    Component.literal("Auto-logout after " +
+                                            formatTime(afkElapsedSeconds) + " AFK")
                             );
                         }
                         toggled = false;
@@ -93,7 +102,7 @@ public class Main implements ModInitializer {
                 }
             }
 
-            if (toggleKeyBinding.consumeClick()) {
+            if (toggleKeyBinding != null && toggleKeyBinding.consumeClick()) {
                 toggled = !toggled;
 
                 if (client.gui.screen() instanceof AntiAfkScreen screen) {
@@ -113,7 +122,7 @@ public class Main implements ModInitializer {
                 }
             }
 
-            if (guiKeyBinding.consumeClick()) {
+            if (guiKeyBinding != null && guiKeyBinding.consumeClick()) {
                 client.setScreenAndShow(new AntiAfkScreen(client.gui.screen()));
             }
         });
